@@ -1,5 +1,5 @@
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Convd2D, MaxPooling2D, Flatten, control_dependencies
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, control_dependencies, Dense
 
 model = Sequential() 
 
