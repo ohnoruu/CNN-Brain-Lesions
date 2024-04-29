@@ -1,32 +1,85 @@
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, control_dependencies, Dense
+from tensorflow.keras.layers import Input, Conv3D, BatchNormalization, Activation, MaxPooling3D, GlobalAveragePooling3D, Dense 
+from tensorflow.keras.models import Model
+from tensorflow.keras.utils import Sequence
+import numpy as np
+import os 
+import nibabel as nib
 
-model = Sequential() 
+# loading in data
+class DataGenerator(Sequence):
+    def __init__(self, image_paths, labels, batch_size=32, shuffle=True):
+        self.image_paths = image_paths
+        self.labels = labels
+        self.batch_size = batch_size
+        self.shuffle = shuffle
+        self.indexes = np.arange(len(image_paths))
+        self.on_epoch_end()
 
-# currently default settings. Will adjust after looking into database and data structures
-# Initialize the model
-model = Sequential()
 
-# Add a convolutional layer
-model.add(Conv2D(32, (3, 3), activation='relu', input_shape=(64, 64, 3)))
+    def __len__(self):
+        return len(self.image_paths) // self.batch_size
 
-# Add a pooling layer
-model.add(MaxPooling2D(pool_size=(2, 2)))
+    def __getitem__(self, index):
+        indexes = self.indexes[index*self.batch_size:(index+1)*self.batch_size]
+        batch_image_paths = [self.image_paths[i] for i in indexes]
+        batch_labels = [self.labels[i] for i in indexes]
 
-# Add a second convolutional layer
-model.add(Conv2D(64, (3, 3), activation='relu'))
+        #preprocess batch of images
+        preprocessed_images = []
+        for image_path in batch_image_paths:
+            image_path = self.load_nifti_image(image_data)
+            preprocessed_image = self.preprocess_image(image_data)
+            preprocessed_images.append(preprocessed_image)
 
-# Add a second pooling layer
-model.add(MaxPooling2D(pool_size=(2, 2)))
+        return np.array(preprocessed_images), np.array(batch_labels)
 
-# Flatten the tensor output from the previous layer
-model.add(Flatten())
+    def on_epoch_end(self):
+        if self.shuffle == True:
+            np.random.shuffle(self.indexes)
 
-# Add a fully connected layer
-model.add(Dense(128, activation='relu'))
+    def load_nifti_image(self, image_path):
+        # load image
+        nifti_img = nib.load(image_path)
+        # get image data array
+        image_data = nifti_img.get_fdata()
+        return image_data
 
-# Add the output layer
-model.add(Dense(1, activation='sigmoid'))
+    def preprocess_image(self, image_data):
+        # apply preprocessing steps
+        depth, height, width, channels = image_data.shape
+        # resize image to fit 3D ResNet model
 
-# Compile the model
-model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+        return input_shape
+
+
+"""
+# image preprocessing 
+import nibabel as nib
+
+# load image 
+nifti_img = nib.load('path/to/nifti_file.nii')
+# get image data array (reminder: NIfTI images are 4D arrays)
+image_data = nifti_img.get_fdata()
+# get dimensions of image data array
+# "channels" refers to number of color channels (ex: RGB)
+# MRI is typically grayscale, so channels=1
+depth, height, width, channels = image_data.shape 
+# .shape returns a tuple of the dimensions of the array, so this line of code will unpack it
+print(f"Dimensions: Depth={depth}, Height={height}, Width={width}")
+"""
+
+# define 3D ResNet model
+def resnet_3d(input_shape):
+    inputs = Input(shape=input_shape)
+
+    outputs = Conv3D(1, kernel_size=(3,3,3), activation='sigmoid', padding='same')(inputs)
+
+    #create model
+    model = Model(inputs=inputs, outputs=outputs)
+    return model
+
+# define input shape
+#input_shape = (depth, height, width, channels) #define dimensions of input img
+
+#create 3D ResNet model
+model = resnet_3d(input_shape)
