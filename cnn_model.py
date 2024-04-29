@@ -1,3 +1,4 @@
+# imports
 from tensorflow.keras.layers import Input, Conv3D, BatchNormalization, Activation, MaxPooling3D, GlobalAveragePooling3D, Dense 
 from tensorflow.keras.models import Model
 from tensorflow.keras.utils import Sequence
@@ -6,12 +7,15 @@ import os
 import nibabel as nib
 
 # loading in data
-class DataGenerator(Sequence):
+class DataGenerator(Sequence): # defines custom class that inherits from Keras Sequence class. 
+    # Instead of loading the entire dataset to train the model, the generator loads and processes a batch of data
+    # Feeds each batch to the model for training and moves on
+    # Optimal for handling large amounts of data
     def __init__(self, image_paths, labels, batch_size=32, shuffle=True):
-        self.image_paths = image_paths
-        self.labels = labels
-        self.batch_size = batch_size
-        self.shuffle = shuffle
+        self.image_paths = image_paths # stores list of file paths to images in the dataset
+        self.labels = labels # stores corresponding labels for each image of the dataset (like key or id)
+        self.batch_size = batch_size # specifies the size of each batch that will be sent to the model
+        self.shuffle = shuffle # 
         self.indexes = np.arange(len(image_paths))
         self.on_epoch_end()
 
@@ -45,11 +49,8 @@ class DataGenerator(Sequence):
         return image_data
 
     def preprocess_image(self, image_data):
-        # apply preprocessing steps
-        depth, height, width, channels = image_data.shape
-        # resize image to fit 3D ResNet model
-
-        return input_shape
+        # apply preprocessing steps later
+        return processed_image
 
 
 """
