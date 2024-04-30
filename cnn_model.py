@@ -16,6 +16,7 @@ class DataGenerator(Sequence): # defines custom class that inherits from Keras S
     # Optimal for handling large amounts of data
     def __init__(self, image_paths, labels, batch_size=32, shuffle=True):
         # initializes data generator with image paths, corresponding labels, batch size, and shuffle option
+        # 'self' refers to an instance of DataGenerator class. 
         self.image_paths = image_paths # stores list of file paths to images in the dataset
         self.labels = labels # stores corresponding labels for each image of the dataset (like key or id)
         self.batch_size = batch_size # specifies the size of each batch that will be sent to the model
@@ -42,14 +43,19 @@ class DataGenerator(Sequence): # defines custom class that inherits from Keras S
         for image_path in batch_image_paths:
             # code inside loop will process each image in a batch 
             image_path = self.load_nifti_image(image_data)
-            # 
+            # load image using load_nifti_image function, which retrieves image file and converts into array
             preprocessed_image = self.preprocess_image(image_data)
+            # preprocess image using preprocess_image function, which changes the image format to fit 3D ResNet
             preprocessed_images.append(preprocessed_image)
+            # appends preprocessed image to a list of preprocessed images (defined above)
 
         return np.array(preprocessed_images), np.array(batch_labels)
+        # return tuple containing preprocessed images and corresponding batch labels. 
+        # both are converted into NumPy arrays
 
     def on_epoch_end(self):
         if self.shuffle == True:
+            # if shuffle is true, NumPy will apply shuffle between epochs
             np.random.shuffle(self.indexes)
 
     def load_nifti_image(self, image_path):
