@@ -37,8 +37,8 @@ class DataGenerator(Sequence): # defines custom class that inherits from Keras S
         self.on_epoch_end() # called to shuffle the dataset each epoch
 
     def __len__(self):
-        # returns number of batches per epoch 
         return len(self.image_paths) // self.batch_size 
+        # returns number of batches per epoch 
 
     def __getitem__(self, index):
         # generates one batch of data
@@ -70,45 +70,38 @@ class DataGenerator(Sequence): # defines custom class that inherits from Keras S
             np.random.shuffle(self.indexes)
 
     def load_nifti_image(self, image_path):
-        # load image
         nifti_img = nib.load(image_path)
-        # get image data array
+        # load image
         image_data = nifti_img.get_fdata()
+        # get image as data array (records dimensions of the 3D nifti image)
         return image_data
 
     def preprocess_image(self, image_data):
         # apply preprocessing steps later
         return processed_image
-
-
 """
-# image preprocessing 
-import nibabel as nib
-
-# load image 
-nifti_img = nib.load('path/to/nifti_file.nii')
-# get image data array (reminder: NIfTI images are 4D arrays)
-image_data = nifti_img.get_fdata()
-# get dimensions of image data array
-# "channels" refers to number of color channels (ex: RGB)
-# MRI is typically grayscale, so channels=1
-depth, height, width, channels = image_data.shape 
-# .shape returns a tuple of the dimensions of the array, so this line of code will unpack it
-print(f"Dimensions: Depth={depth}, Height={height}, Width={width}")
+Functions in tensorflow.keras
+Model - creates neural network
 """
 
-# define 3D ResNet model
 def resnet_3d(input_shape):
+    # define 3D ResNet model using Keras
     inputs = Input(shape=input_shape)
-
+    # creates an input layer for the model with the specified input shape
+    # defines depth, height, width, and channels (colors)
+    
     outputs = Conv3D(1, kernel_size=(3,3,3), activation='sigmoid', padding='same')(inputs)
-
-    #create model
+    # creates a 3D Convolutional Layer
+    # 1 - number of filters (output channels) 
+    # kernel-size=(3,3,3) - defines the size of a 3D convolutional kernel: a small matrix that is convolved with an input image, used to extract features
+    # activation = 'sigmoid' - specifies activation function of the layer. sigmoid maps input values from a range between 1 and 0 (used for classification)
+    # padding = 'same' - pads the input such as the output has the same dimensions as the input
+    
     model = Model(inputs=inputs, outputs=outputs)
+    # model creation
+    # input - specifies input layer
+    # output - specifies output layer
     return model
 
-# define input shape
-#input_shape = (depth, height, width, channels) #define dimensions of input img
-
 #create 3D ResNet model
-model = resnet_3d(input_shape)
+#model = resnet_3d(input_shape)
