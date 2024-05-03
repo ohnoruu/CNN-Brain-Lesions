@@ -81,7 +81,9 @@ class DataGenerator(Sequence): # defines custom class that inherits from Keras S
         return processed_image
 """
 Functions in tensorflow.keras
-Model - creates neural network
+Input - defines input layer
+Conv3D - creates 3D Convolutional layer
+Model - creates neural network, defines architecture by specifying input and output layers of the model
 """
 
 def resnet_3d(input_shape):
