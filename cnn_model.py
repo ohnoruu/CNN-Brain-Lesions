@@ -6,6 +6,15 @@ import numpy as np
 import os 
 import nibabel as nib
 
+"""
+DataGenerator - summary
+__init__: initialized with parameters containing image paths, corresponding labels, batch size, and shuffle options 
+__len__: returns # of batches per epoch
+__getitem__: generates/retrieves one batch of data from given index
+on_epoch__end: if shuffle is enabled, dataset indexes are shuffled after each epoch to prevent the model from memorizing the order of samples
+load_nifti_image: loads nifti image and gets image as a data array
+"""
+
 # loading in data
 # epoch - one complete pass through the ENTIRE training dataset during the training of the model
 # batch: portion of an epoch
@@ -14,15 +23,17 @@ class DataGenerator(Sequence): # defines custom class that inherits from Keras S
     # Instead of loading the entire dataset to train the model, the generator loads and processes a batch of data
     # Feeds each batch to the model for training and moves on
     # Optimal for handling large amounts of data
+    # 'self' refers to an instance of DataGenerator class.
     def __init__(self, image_paths, labels, batch_size=32, shuffle=True):
         # initializes data generator with image paths, corresponding labels, batch size, and shuffle option
-        # 'self' refers to an instance of DataGenerator class. 
         self.image_paths = image_paths # stores list of file paths to images in the dataset
         self.labels = labels # stores corresponding labels for each image of the dataset (like key or id)
         self.batch_size = batch_size # specifies the size of each batch that will be sent to the model
         self.shuffle = shuffle # indicates whether shuffle should be applied between epochs 
         # important to prevent the model from memorizing the order of the samples, improving generalization
         self.indexes = np.arange(len(image_paths)) # array of indexes representing the positions of the samples in the dataset
+        # NumPy's 'arange' function generates an array of indexes from 0 to the length of image paths 
+        # each index corresponds to a specific MRI image in the dataset
         self.on_epoch_end() # called to shuffle the dataset each epoch
 
     def __len__(self):
