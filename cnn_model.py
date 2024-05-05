@@ -76,9 +76,10 @@ class DataGenerator(Sequence): # defines custom class that inherits from Keras S
         # get image as data array (records dimensions of the 3D nifti image)
         return image_data
 
-    def preprocess_image(self, image_data):
-        # apply preprocessing steps later
-        return processed_image
+    def get_image_dimensions(self, image_data):
+        depth, height, width, channels = image_data.shape
+        print
+        return (depth, height, width, channels)
 """
 Functions in tensorflow.keras
 Input - defines input layer
