@@ -1,4 +1,9 @@
 More formal, organized documentation other than program comments. 
+
+Question - how does AI model take both image paths and labels into account, and use this to generate probability? - modify classification task later. 
+
+- take some time to understand how the model works before grinding code
+
 # DataGenerator Class
 # Classification
 1) Retrieving inputs

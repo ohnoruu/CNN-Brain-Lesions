@@ -1,10 +1,12 @@
 # imports
 from tensorflow.keras.layers import Input, Conv3D, BatchNormalization, Activation, MaxPooling3D, GlobalAveragePooling3D, Dense 
 from tensorflow.keras.models import Model
+from tensorflow.keras.models import load_model
 from tensorflow.keras.utils import Sequence
 import numpy as np
 import os 
 import nibabel as nib
+import scipy.ndimage as ndi
 
 """
 DataGenerator - summary
@@ -24,6 +26,7 @@ class DataGenerator(Sequence): # defines custom class that inherits from Keras S
     # Feeds each batch to the model for training and moves on
     # Optimal for handling large amounts of data
     # 'self' refers to an instance of DataGenerator class.
+    # functions beginning and ending with '__' are dunder methods and are automatically called when itializing an instance of DataGenerator
     def __init__(self, image_paths, labels, batch_size=32, shuffle=True):
         # initializes data generator with image paths, corresponding labels, batch size, and shuffle option
         self.image_paths = image_paths # stores list of file paths to images in the dataset
@@ -75,6 +78,13 @@ class DataGenerator(Sequence): # defines custom class that inherits from Keras S
         image_data = nifti_img.get_fdata()
         # get image as data array (records dimensions of the 3D nifti image)
         return image_data
+    
+    def get_nifti_shape(self, image_path):
+        nifti_img = nib.load(image_path)
+        image_data = nifti_img.get_fdata()
+        image_shape = image_data.shape
+        print("Image dimensions: ", image_shape)
+        return image_shape
 
     def preprocess_image(self, image):
         # normalization
@@ -94,7 +104,7 @@ def classification(input_shape):
     # defines depth, height, width, and channels (colors)
     
     # for each convolutional layer, each step will be applied using var 'x'
-    x = Conv3D(32, kernel_size=(3,3,3), activation='sigmoid', padding='same')(inputs)
+    x = Conv3D(32, kernel_size=(3,3,3), padding='same')(inputs)
     # creates a 3D Convolutional Layer on the input data
     # 32 - number of filters (output channels) 
     # kernel-size=(3,3,3) - defines the size of a 3D convolutional kernel: a small matrix that is convolved with an input image, used to extract features
@@ -131,12 +141,82 @@ def classification(input_shape):
     return model
 
 def visualization(image_data, feature_maps, threshold):
+    """
+    Apply thresholding to feature maps and visualize stroke areas in the MRI image.
+    
+    Parameters:
+    - image_data: np.ndarray, original MRI image data
+    - feature_maps: np.ndarray, feature maps from the model
+    - threshold: float, threshold to apply on feature maps to identify stroke areas
+    
+    Returns:
+    - highlighted_image: np.ndarray, MRI image with highlighted stroke areas
+    """
+
     # apply threshold to feature maps to identify stroke areas
     stroke_map = feature_maps > threshold
-
-    # segmentation/post-processing (note to do research on visualization later...)
-
+    # identifies areas of stroke concern by highlighting parts of the brain that indicate a stroke probability higher than the threshold (50%)
+    
+    stroke_areas = ndi.binary_opening(stroke_map, structure=np.ones((3,3,3)))
+    # binary opening - removes small white regions from the image that are surrounded by black pixels
+    # used to seperate objects close to each other to visualize stroke areas
+    # maps out areas of stroke concern
     highlighted_image = np.copy(image_data)
     highlighted_image[stroke_map] = 255 # highlight stroke areas with white color
 
     return highlighted_image
+
+def save_nifti(image_data, output_path, affine=None):
+    """
+    Save the given image data as a NIfTI file. (this is mainly meant for after visualization)
+    
+    Parameters:
+    - image_data: np.ndarray, image data to be saved
+    - output_path: str, path to save the NIfTI file
+    - affine: np.ndarray, affine transformation matrix for the NIfTI file
+    """
+
+    # Create a NIfTI image
+    nifti_img = nib.Nifti1Image(image_data, affine=affine)
+    # Save image
+    nib.save(nifti_img, output_path)
+
+# TRAINING 
+image_paths = [
+    'data\MRI-DWI\sub-1_rec-TRACE_dwi.nii.gz',
+    'data\MRI-DWI\sub-2_rec-TRACE_dwi.nii.gz',
+    'data\MRI-DWI\sub-3_rec-TRACE_dwi.nii.gz',
+    'data\MRI-DWI\sub-4_rec-TRACE_dwi.nii.gz',
+    'data\MRI-DWI\sub-5_rec-TRACE_dwi.nii.gz',
+    'data\MRI-DWI\sub-7_rec-TRACE_dwi.nii.gz',
+    'data\MRI-DWI\sub-8_rec-TRACE_dwi.nii.gz',
+    'data\MRI-DWI\sub-9_rec-TRACE_dwi.nii.gz',
+    'data\MRI-DWI\sub-10_rec-TRACE_dwi.nii.gz',
+    'data\MRI-DWI\sub-11_rec-TRACE_dwi.nii.gz',
+]
+labels = [ # the ground truth - annotations made by medical professionals
+    'data\annotations\sub-1\sub-1_space-TRACE_desc-lesion_mask.nii.gz',
+    'data\annotations\sub-1\sub-2_space-TRACE_desc-lesion_mask.nii.gz',
+    'data\annotations\sub-1\sub-3_space-TRACE_desc-lesion_mask.nii.gz',
+    'data\annotations\sub-1\sub-4_space-TRACE_desc-lesion_mask.nii.gz',
+    'data\annotations\sub-1\sub-5_space-TRACE_desc-lesion_mask.nii.gz',
+    'data\annotations\sub-1\sub-7_space-TRACE_desc-lesion_mask.nii.gz',
+    'data\annotations\sub-1\sub-8_space-TRACE_desc-lesion_mask.nii.gz',
+    'data\annotations\sub-1\sub-9_space-TRACE_desc-lesion_mask.nii.gz',
+    'data\annotations\sub-1\sub-10_space-TRACE_desc-lesion_mask.nii.gz',
+    'data\annotations\sub-1\sub-11_space-TRACE_desc-lesion_mask.nii.gz',
+]
+
+batch_size = 32
+train_generator = DataGenerator(image_paths, labels, batch_size=batch_size, shuffle=True) # instance of DataGenerator class
+
+# COMPILE MODEL
+provided_image_path = image_paths[0] # select image to test
+image_shape = train_generator.get_nifti_shape(provided_image_path)
+model = classification(input_shape=image_shape)
+model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+
+epochs = 10
+model.fit(train_generator, epochs=epochs)
+
+threshold = 0.5
