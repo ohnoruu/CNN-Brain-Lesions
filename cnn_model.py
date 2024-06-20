@@ -3,6 +3,7 @@ from tensorflow.keras.layers import Input, Conv3D, BatchNormalization, Activatio
 from tensorflow.keras.models import Model
 from tensorflow.keras.models import load_model
 from tensorflow.keras.utils import Sequence
+from tensorflow.keras.callbacks import ModelCheckpoint
 import numpy as np
 import os 
 import nibabel as nib
@@ -17,7 +18,7 @@ on_epoch__end: if shuffle is enabled, dataset indexes are shuffled after each ep
 load_nifti_image: loads nifti image and gets image as a data array
 """
 
-# loading in data
+# LOADING IN DATA (FOR TRAINING)
 # epoch - one complete pass through the ENTIRE training dataset during the training of the model
 # batch: portion of an epoch
 # during one epoch, the model will see each training model once and will update its parameters based on the observed data
@@ -193,6 +194,36 @@ image_paths = [
     'data\MRI-DWI\sub-9_rec-TRACE_dwi.nii.gz',
     'data\MRI-DWI\sub-10_rec-TRACE_dwi.nii.gz',
     'data\MRI-DWI\sub-11_rec-TRACE_dwi.nii.gz',
+    'data\MRI-DWI\sub-13_rec-TRACE_dwi.nii.gz',
+    'data\MRI-DWI\sub-14_rec-TRACE_dwi.nii.gz',
+    'data\MRI-DWI\sub-15_rec-TRACE_dwi.nii.gz',
+    'data\MRI-DWI\sub-16_rec-TRACE_dwi.nii.gz',
+    'data\MRI-DWI\sub-17_rec-TRACE_dwi.nii.gz',
+    'data\MRI-DWI\sub-19_rec-TRACE_dwi.nii.gz',
+    'data\MRI-DWI\sub-20_rec-TRACE_dwi.nii.gz',
+    'data\MRI-DWI\sub-21_rec-TRACE_dwi.nii.gz',
+    'data\MRI-DWI\sub-23_rec-TRACE_dwi.nii.gz',
+    'data\MRI-DWI\sub-24_rec-TRACE_dwi.nii.gz',
+    'data\MRI-DWI\sub-25_rec-TRACE_dwi.nii.gz',
+    'data\MRI-DWI\sub-26_rec-TRACE_dwi.nii.gz',
+    'data\MRI-DWI\sub-27_rec-TRACE_dwi.nii.gz',
+    'data\MRI-DWI\sub-28_rec-TRACE_dwi.nii.gz',
+    'data\MRI-DWI\sub-30_rec-TRACE_dwi.nii.gz',
+    'data\MRI-DWI\sub-33_rec-TRACE_dwi.nii.gz',
+    'data\MRI-DWI\sub-34_rec-TRACE_dwi.nii.gz',
+    'data\MRI-DWI\sub-35_rec-TRACE_dwi.nii.gz',
+    'data\MRI-DWI\sub-36_rec-TRACE_dwi.nii.gz',
+    'data\MRI-DWI\sub-38_rec-TRACE_dwi.nii.gz',
+    'data\MRI-DWI\sub-39_rec-TRACE_dwi.nii.gz',
+    'data\MRI-DWI\sub-41_rec-TRACE_dwi.nii.gz',
+    'data\MRI-DWI\sub-42_rec-TRACE_dwi.nii.gz',
+    'data\MRI-DWI\sub-43_rec-TRACE_dwi.nii.gz',
+    'data\MRI-DWI\sub-44_rec-TRACE_dwi.nii.gz',
+    'data\MRI-DWI\sub-45_rec-TRACE_dwi.nii.gz',
+    'data\MRI-DWI\sub-46_rec-TRACE_dwi.nii.gz',
+    'data\MRI-DWI\sub-47_rec-TRACE_dwi.nii.gz',
+    'data\MRI-DWI\sub-49_rec-TRACE_dwi.nii.gz',
+    'data\MRI-DWI\sub-50_rec-TRACE_dwi.nii.gz',
 ]
 labels = [ # the ground truth - annotations made by medical professionals
     'data\annotations\sub-1\sub-1_space-TRACE_desc-lesion_mask.nii.gz',
@@ -205,18 +236,77 @@ labels = [ # the ground truth - annotations made by medical professionals
     'data\annotations\sub-1\sub-9_space-TRACE_desc-lesion_mask.nii.gz',
     'data\annotations\sub-1\sub-10_space-TRACE_desc-lesion_mask.nii.gz',
     'data\annotations\sub-1\sub-11_space-TRACE_desc-lesion_mask.nii.gz',
+    'data\annotations\sub-1\sub-13_space-TRACE_desc-lesion_mask.nii.gz',
+    'data\annotations\sub-1\sub-14_space-TRACE_desc-lesion_mask.nii.gz',
+    'data\annotations\sub-1\sub-15_space-TRACE_desc-lesion_mask.nii.gz',
+    'data\annotations\sub-1\sub-16_space-TRACE_desc-lesion_mask.nii.gz',
+    'data\annotations\sub-1\sub-17_space-TRACE_desc-lesion_mask.nii.gz',
+    'data\annotations\sub-1\sub-19_space-TRACE_desc-lesion_mask.nii.gz',
+    'data\annotations\sub-1\sub-20_space-TRACE_desc-lesion_mask.nii.gz',
+    'data\annotations\sub-1\sub-21_space-TRACE_desc-lesion_mask.nii.gz',
+    'data\annotations\sub-1\sub-23_space-TRACE_desc-lesion_mask.nii.gz',
+    'data\annotations\sub-1\sub-24_space-TRACE_desc-lesion_mask.nii.gz',
+    'data\annotations\sub-1\sub-25_space-TRACE_desc-lesion_mask.nii.gz',
+    'data\annotations\sub-1\sub-26_space-TRACE_desc-lesion_mask.nii.gz',
+    'data\annotations\sub-1\sub-27_space-TRACE_desc-lesion_mask.nii.gz',
+    'data\annotations\sub-1\sub-28_space-TRACE_desc-lesion_mask.nii.gz',
+    'data\annotations\sub-1\sub-30_space-TRACE_desc-lesion_mask.nii.gz',
+    'data\annotations\sub-1\sub-33_space-TRACE_desc-lesion_mask.nii.gz',
+    'data\annotations\sub-1\sub-34_space-TRACE_desc-lesion_mask.nii.gz',
+    'data\annotations\sub-1\sub-35_space-TRACE_desc-lesion_mask.nii.gz',
+    'data\annotations\sub-1\sub-36_space-TRACE_desc-lesion_mask.nii.gz',
+    'data\annotations\sub-1\sub-38_space-TRACE_desc-lesion_mask.nii.gz',
+    'data\annotations\sub-1\sub-39_space-TRACE_desc-lesion_mask.nii.gz',
+    'data\annotations\sub-1\sub-41_space-TRACE_desc-lesion_mask.nii.gz',
+    'data\annotations\sub-1\sub-42_space-TRACE_desc-lesion_mask.nii.gz',
+    'data\annotations\sub-1\sub-43_space-TRACE_desc-lesion_mask.nii.gz',
+    'data\annotations\sub-1\sub-44_space-TRACE_desc-lesion_mask.nii.gz',
+    'data\annotations\sub-1\sub-45_space-TRACE_desc-lesion_mask.nii.gz',
+    'data\annotations\sub-1\sub-46_space-TRACE_desc-lesion_mask.nii.gz',
+    'data\annotations\sub-1\sub-47_space-TRACE_desc-lesion_mask.nii.gz',
+    'data\annotations\sub-1\sub-49_space-TRACE_desc-lesion_mask.nii.gz',
+    'data\annotations\sub-1\sub-50_space-TRACE_desc-lesion_mask.nii.gz',
 ]
 
-batch_size = 32
+batch_size = 32 # num of samples in each batch
 train_generator = DataGenerator(image_paths, labels, batch_size=batch_size, shuffle=True) # instance of DataGenerator class
+#loads, preprocesses images and corresponding labels, shuffles after each epoch. 
 
-# COMPILE MODEL
-provided_image_path = image_paths[0] # select image to test
+# TRAINING
+provided_image_path = image_paths[0] # used SOLELY for retrieving the shape of image to provide as an input for training
 image_shape = train_generator.get_nifti_shape(provided_image_path)
-model = classification(input_shape=image_shape)
+model = classification(input_shape=image_shape) # creation of 3D ResNet model using input shape
 model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+# model.compile is a built-in method of Keras and is important for training. This method configures the model for training.
+# optimizer - adam (adaptive moment estimation) - adjusts learning rate during training
+# loss - binary crossentropy - used for binary classification tasks
+# metrics - accuracy - used to evaluate the model's performance
 
 epochs = 10
-model.fit(train_generator, epochs=epochs)
+model.fit(train_generator, epochs=epochs) # initiate training
+# trains model using data generator for 10 epochs.
 
+# SAVING MODEL AND TRAINING WEIGHTS
+checkpoint_directory = 'model_checkpoints' # provide file path later to upload data to computer
+os.makedirs(checkpoint_directory, exist_ok=True) # create checkpoint directory
+
+checkpoint_path = os.path.join(checkpoint_directory, 'model_checkpoint.h5')
+# specifies path where model checkpoints will be saved
+
+checkpoint_callback = ModelCheckpoint(
+    filepath=checkpoint_path,
+    monitor='val_accuracy', # monitor accuracy
+    mode='max', # refers to goal of maximizing accuracy
+    save_best_ony=True, # saves most accurate model
+    save_weights_only=True,
+    verbose=1 # specifies output (1 for print)
+)
+
+model.fit(
+    train_generator,
+    epochs=epochs,
+    callbacks=[checkpoint_callback]
+)
+
+# VISUALIZATION
 threshold = 0.5

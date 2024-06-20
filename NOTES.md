@@ -1,8 +1,27 @@
 More formal, organized documentation other than program comments. 
 
-Question - how does AI model take both image paths and labels into account, and use this to generate probability? - modify classification task later. 
+# Personal Notes
+  Current Focuses:
+  - look through DataGenerator class and ensure that data will be sorted properly
+  - how will data be outputted? 
+  - look into ModelCheckPoint - keras built in function to save model weights for training purposes.
+  - Understand how training and classification works
 
-- take some time to understand how the model works before grinding code
+  Later Focuses:
+   - Compile visualization task
+   - Figure out how to evaluate accuracy 
+   - Run test runs, go through any bugs and errors 
+
+# Keras Built-In Methods
+  - model.compile: configures model for training by specifying optimizer, loss function, and metrics to be used. 
+  1) Optimizer - used to change attributes of neural networks such as weights and learning rate
+    This model uses an Adam optimizer - used to update network weights based on training data, and is notable due to its adaptive learning rates that will make it optimal for identifying patterns and correcting error. 
+  2) Loss Function - measures how well model's predictions match actual target values, in this case by measuring how well the model's predicted probabilities match ground truth (labels)
+    This model uses Binary Cross-Entropy Loss - performs binary classification to determine stroke VS no stroke
+  3) Metrics - specifies metrics to be tracked during training and evaluation.
+    The metrics tracked by the model will be accuracy.
+
+  - model.fit: initiates training based on given dataset. 
 
 # DataGenerator Class
 # Classification
@@ -22,3 +41,19 @@ Question - how does AI model take both image paths and labels into account, and 
      x = BatchNormalization()(x)
    - normalizes activations of the previous layer
    - rescales input values to a common range that is easier for the machine to recognize
+
+# Training
+  - train_generator: instance of DataGenerator class.
+  - model.compile 
+  - model.fit
+      -trains model using data generator (instance of DataGenerator class, train_generator) for 10 epochs
+      -During each epoch, following steps are repeated:
+        1) batch of input data and labels/ground truth and provided
+        2) model makes predictions
+        3) binary cross-entropy loss is computed (using comparisons between data and ground truth)
+        4) using evaluation from binary cross-entropy, model's weights are updated
+        5) accuracy is evaluated using metrics
+
+# Creating Checkpoints
+  - Checkpoint Directory: specifies where on local filesystem the model checkpoints will be saved
+  - Checkpoint File Path: specifies naming convention and exact file path for checkpoint directory
