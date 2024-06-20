@@ -9,6 +9,10 @@ import os
 import nibabel as nib
 import scipy.ndimage as ndi
 
+# file paths (see image_paths.py and labels.py)
+from image_paths import image_paths
+from labels import labels
+
 """
 DataGenerator - summary
 __init__: initialized with parameters containing image paths, corresponding labels, batch size, and shuffle options 
@@ -183,91 +187,7 @@ def save_nifti(image_data, output_path, affine=None):
     nib.save(nifti_img, output_path)
 
 # TRAINING 
-image_paths = [
-    'data\MRI-DWI\sub-1_rec-TRACE_dwi.nii.gz',
-    'data\MRI-DWI\sub-2_rec-TRACE_dwi.nii.gz',
-    'data\MRI-DWI\sub-3_rec-TRACE_dwi.nii.gz',
-    'data\MRI-DWI\sub-4_rec-TRACE_dwi.nii.gz',
-    'data\MRI-DWI\sub-5_rec-TRACE_dwi.nii.gz',
-    'data\MRI-DWI\sub-7_rec-TRACE_dwi.nii.gz',
-    'data\MRI-DWI\sub-8_rec-TRACE_dwi.nii.gz',
-    'data\MRI-DWI\sub-9_rec-TRACE_dwi.nii.gz',
-    'data\MRI-DWI\sub-10_rec-TRACE_dwi.nii.gz',
-    'data\MRI-DWI\sub-11_rec-TRACE_dwi.nii.gz',
-    'data\MRI-DWI\sub-13_rec-TRACE_dwi.nii.gz',
-    'data\MRI-DWI\sub-14_rec-TRACE_dwi.nii.gz',
-    'data\MRI-DWI\sub-15_rec-TRACE_dwi.nii.gz',
-    'data\MRI-DWI\sub-16_rec-TRACE_dwi.nii.gz',
-    'data\MRI-DWI\sub-17_rec-TRACE_dwi.nii.gz',
-    'data\MRI-DWI\sub-19_rec-TRACE_dwi.nii.gz',
-    'data\MRI-DWI\sub-20_rec-TRACE_dwi.nii.gz',
-    'data\MRI-DWI\sub-21_rec-TRACE_dwi.nii.gz',
-    'data\MRI-DWI\sub-23_rec-TRACE_dwi.nii.gz',
-    'data\MRI-DWI\sub-24_rec-TRACE_dwi.nii.gz',
-    'data\MRI-DWI\sub-25_rec-TRACE_dwi.nii.gz',
-    'data\MRI-DWI\sub-26_rec-TRACE_dwi.nii.gz',
-    'data\MRI-DWI\sub-27_rec-TRACE_dwi.nii.gz',
-    'data\MRI-DWI\sub-28_rec-TRACE_dwi.nii.gz',
-    'data\MRI-DWI\sub-30_rec-TRACE_dwi.nii.gz',
-    'data\MRI-DWI\sub-33_rec-TRACE_dwi.nii.gz',
-    'data\MRI-DWI\sub-34_rec-TRACE_dwi.nii.gz',
-    'data\MRI-DWI\sub-35_rec-TRACE_dwi.nii.gz',
-    'data\MRI-DWI\sub-36_rec-TRACE_dwi.nii.gz',
-    'data\MRI-DWI\sub-38_rec-TRACE_dwi.nii.gz',
-    'data\MRI-DWI\sub-39_rec-TRACE_dwi.nii.gz',
-    'data\MRI-DWI\sub-41_rec-TRACE_dwi.nii.gz',
-    'data\MRI-DWI\sub-42_rec-TRACE_dwi.nii.gz',
-    'data\MRI-DWI\sub-43_rec-TRACE_dwi.nii.gz',
-    'data\MRI-DWI\sub-44_rec-TRACE_dwi.nii.gz',
-    'data\MRI-DWI\sub-45_rec-TRACE_dwi.nii.gz',
-    'data\MRI-DWI\sub-46_rec-TRACE_dwi.nii.gz',
-    'data\MRI-DWI\sub-47_rec-TRACE_dwi.nii.gz',
-    'data\MRI-DWI\sub-49_rec-TRACE_dwi.nii.gz',
-    'data\MRI-DWI\sub-50_rec-TRACE_dwi.nii.gz',
-]
-labels = [ # the ground truth - annotations made by medical professionals
-    'data\annotations\sub-1\sub-1_space-TRACE_desc-lesion_mask.nii.gz',
-    'data\annotations\sub-1\sub-2_space-TRACE_desc-lesion_mask.nii.gz',
-    'data\annotations\sub-1\sub-3_space-TRACE_desc-lesion_mask.nii.gz',
-    'data\annotations\sub-1\sub-4_space-TRACE_desc-lesion_mask.nii.gz',
-    'data\annotations\sub-1\sub-5_space-TRACE_desc-lesion_mask.nii.gz',
-    'data\annotations\sub-1\sub-7_space-TRACE_desc-lesion_mask.nii.gz',
-    'data\annotations\sub-1\sub-8_space-TRACE_desc-lesion_mask.nii.gz',
-    'data\annotations\sub-1\sub-9_space-TRACE_desc-lesion_mask.nii.gz',
-    'data\annotations\sub-1\sub-10_space-TRACE_desc-lesion_mask.nii.gz',
-    'data\annotations\sub-1\sub-11_space-TRACE_desc-lesion_mask.nii.gz',
-    'data\annotations\sub-1\sub-13_space-TRACE_desc-lesion_mask.nii.gz',
-    'data\annotations\sub-1\sub-14_space-TRACE_desc-lesion_mask.nii.gz',
-    'data\annotations\sub-1\sub-15_space-TRACE_desc-lesion_mask.nii.gz',
-    'data\annotations\sub-1\sub-16_space-TRACE_desc-lesion_mask.nii.gz',
-    'data\annotations\sub-1\sub-17_space-TRACE_desc-lesion_mask.nii.gz',
-    'data\annotations\sub-1\sub-19_space-TRACE_desc-lesion_mask.nii.gz',
-    'data\annotations\sub-1\sub-20_space-TRACE_desc-lesion_mask.nii.gz',
-    'data\annotations\sub-1\sub-21_space-TRACE_desc-lesion_mask.nii.gz',
-    'data\annotations\sub-1\sub-23_space-TRACE_desc-lesion_mask.nii.gz',
-    'data\annotations\sub-1\sub-24_space-TRACE_desc-lesion_mask.nii.gz',
-    'data\annotations\sub-1\sub-25_space-TRACE_desc-lesion_mask.nii.gz',
-    'data\annotations\sub-1\sub-26_space-TRACE_desc-lesion_mask.nii.gz',
-    'data\annotations\sub-1\sub-27_space-TRACE_desc-lesion_mask.nii.gz',
-    'data\annotations\sub-1\sub-28_space-TRACE_desc-lesion_mask.nii.gz',
-    'data\annotations\sub-1\sub-30_space-TRACE_desc-lesion_mask.nii.gz',
-    'data\annotations\sub-1\sub-33_space-TRACE_desc-lesion_mask.nii.gz',
-    'data\annotations\sub-1\sub-34_space-TRACE_desc-lesion_mask.nii.gz',
-    'data\annotations\sub-1\sub-35_space-TRACE_desc-lesion_mask.nii.gz',
-    'data\annotations\sub-1\sub-36_space-TRACE_desc-lesion_mask.nii.gz',
-    'data\annotations\sub-1\sub-38_space-TRACE_desc-lesion_mask.nii.gz',
-    'data\annotations\sub-1\sub-39_space-TRACE_desc-lesion_mask.nii.gz',
-    'data\annotations\sub-1\sub-41_space-TRACE_desc-lesion_mask.nii.gz',
-    'data\annotations\sub-1\sub-42_space-TRACE_desc-lesion_mask.nii.gz',
-    'data\annotations\sub-1\sub-43_space-TRACE_desc-lesion_mask.nii.gz',
-    'data\annotations\sub-1\sub-44_space-TRACE_desc-lesion_mask.nii.gz',
-    'data\annotations\sub-1\sub-45_space-TRACE_desc-lesion_mask.nii.gz',
-    'data\annotations\sub-1\sub-46_space-TRACE_desc-lesion_mask.nii.gz',
-    'data\annotations\sub-1\sub-47_space-TRACE_desc-lesion_mask.nii.gz',
-    'data\annotations\sub-1\sub-49_space-TRACE_desc-lesion_mask.nii.gz',
-    'data\annotations\sub-1\sub-50_space-TRACE_desc-lesion_mask.nii.gz',
-]
-
+# image_paths and labels were previously imported (see imports)
 batch_size = 32 # num of samples in each batch
 train_generator = DataGenerator(image_paths, labels, batch_size=batch_size, shuffle=True) # instance of DataGenerator class
 #loads, preprocesses images and corresponding labels, shuffles after each epoch. 
