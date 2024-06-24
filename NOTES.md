@@ -2,15 +2,18 @@ More formal, organized documentation other than program comments.
 
 # Personal Notes
   Current Focuses:
-  - look through DataGenerator class and ensure that data will be sorted properly
-  - how will data be outputted? 
-  - look into ModelCheckPoint - keras built in function to save model weights for training purposes.
-  - Understand how training and classification works
+  - Importing data, image data and labels -> testing/evaluation data
+  - Look for any errors and debug
+  - Specify paths for training data storage and output for highlighted images
+  - work on documentation process and ensure deep understanding of all functions of the model
 
   Later Focuses:
    - Compile visualization task
    - Figure out how to evaluate accuracy 
    - Run test runs, go through any bugs and errors 
+
+  Later Consideration:
+   - implement frontend 
 
 # Keras Built-In Methods
   - model.compile: configures model for training by specifying optimizer, loss function, and metrics to be used. 

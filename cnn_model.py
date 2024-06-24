@@ -9,9 +9,10 @@ import os
 import nibabel as nib
 import scipy.ndimage as ndi
 
-# file paths (see image_paths.py and labels.py)
+# file paths (see image_paths.py, labels.py, and testing_paths.py)
 from image_paths import image_paths
 from labels import labels
+from testing_paths import testing_paths
 
 """
 DataGenerator - summary
@@ -70,7 +71,7 @@ class DataGenerator(Sequence): # defines custom class that inherits from Keras S
 
         return np.array(preprocessed_images), np.array(batch_labels)
         # return tuple containing preprocessed images and corresponding batch labels. 
-        # both are converted into NumPy arrays
+        # both are converted into NumPy arrays and are later used as inputs for training the model
 
     def on_epoch_end(self):
         if self.shuffle == True:
@@ -143,7 +144,7 @@ def classification(input_shape):
     # model creation
     # input - specifies input layer
     # output - specifies output layer
-    return model
+    return model, feature_maps
 
 def visualization(image_data, feature_maps, threshold):
     """
@@ -178,7 +179,7 @@ def save_nifti(image_data, output_path, affine=None):
     Parameters:
     - image_data: np.ndarray, image data to be saved
     - output_path: str, path to save the NIfTI file
-    - affine: np.ndarray, affine transformation matrix for the NIfTI file
+    - affine: np.ndarray, affine transformation matrix for the NIfTI file, defines spatial orientation of the image within the 3D space
     """
 
     # Create a NIfTI image
@@ -191,11 +192,10 @@ def save_nifti(image_data, output_path, affine=None):
 batch_size = 32 # num of samples in each batch
 train_generator = DataGenerator(image_paths, labels, batch_size=batch_size, shuffle=True) # instance of DataGenerator class
 #loads, preprocesses images and corresponding labels, shuffles after each epoch. 
-
-# TRAINING
-provided_image_path = image_paths[0] # used SOLELY for retrieving the shape of image to provide as an input for training
-image_shape = train_generator.get_nifti_shape(provided_image_path)
-model = classification(input_shape=image_shape) # creation of 3D ResNet model using input shape
+shape_image_path = image_paths[0] # used SOLELY for retrieving the shape of image to provide as an input for training
+image_shape = train_generator.get_nifti_shape(shape_image_path)
+model, feature_maps = classification(input_shape=image_shape) # creation of 3D ResNet model using input shape
+# the function 'classification' returns two values: the model and the feature maps (for later visualization task) in a tuple. Listing both model and feature_maps will unpack the tuple
 model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 # model.compile is a built-in method of Keras and is important for training. This method configures the model for training.
 # optimizer - adam (adaptive moment estimation) - adjusts learning rate during training
@@ -205,6 +205,7 @@ model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy']
 epochs = 10
 model.fit(train_generator, epochs=epochs) # initiate training
 # trains model using data generator for 10 epochs.
+# the first parameter of model.fit, x, is the input data. In this case, the input data is an instance of the class DataGenerator, which returns both labels and patient data as NumPy arrays.
 
 # SAVING MODEL AND TRAINING WEIGHTS
 checkpoint_directory = 'model_checkpoints' # provide file path later to upload data to computer
@@ -229,4 +230,17 @@ model.fit(
 )
 
 # VISUALIZATION
+# Getting image shape and data:
+input_image_path = testing_paths[1] # path to image that will be used for evaluation
+provided_nifti_image = nib.load(input_image_path) # load in NIfTI image
+image_data = provided_nifti_image.get_fdata() # outputs as 3D NumPy array
+
+# Initiating visualization:
 threshold = 0.5
+highlighted_image = visualization(image_data, feature_maps, threshold)
+# feature_maps was obtained earlier from classification
+
+# SAVING VISUALIZATION AS NIFTI FILE
+output_path = 'output file location' # specify file path to save visualization
+save_nifti(highlighted_image, output_path, affine=provided_nifti_image.affine)
+# using the affine attribute of the original image ensures that the spatial orientation and transformation aligns correctly with the original image
