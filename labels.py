@@ -342,4 +342,5 @@ labels = [ # the ground truth - annotations made by medical professionals
     'data\annotations\sub-1\sub-400_space-TRACE_desc-lesion_mask.nii.gz',
     'data\annotations\sub-1\sub-401_space-TRACE_desc-lesion_mask.nii.gz',
     'data\annotations\sub-1\sub-403_space-TRACE_desc-lesion_mask.nii.gz',
+    'data\annotations\sub-1\sub-405_space-TRACE_desc-lesion_mask.nii.gz',
 ]
