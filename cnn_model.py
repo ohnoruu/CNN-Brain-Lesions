@@ -4,6 +4,7 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.models import load_model
 from tensorflow.keras.utils import Sequence
 from tensorflow.keras.callbacks import ModelCheckpoint
+import SimpleITK as sitk
 import numpy as np
 import os 
 import nibabel as nib
@@ -85,13 +86,29 @@ class DataGenerator(Sequence): # defines custom class that inherits from Keras S
         # get image as data array (records dimensions of the 3D nifti image)
         return image_data
     
-    def get_nifti_shape(self, image_path):
-        nifti_img = nib.load(image_path)
-        image_data = nifti_img.get_fdata()
-        image_shape = image_data.shape
-        print("Image dimensions: ", image_shape)
-        return image_shape
-
+    def get_nifti_shape(image_path):
+        try:
+            nifti_img = nib.load(image_path)
+            image_data = nifti_img.get_fdata()
+            image_shape = image_data.shape
+            print("Image dimensions: ", image_shape)
+            return image_shape
+        except nib.filebasedimages.ImageFileError as e:
+            print(f"Error loading image: {image_path}, attempting to rewrite with SimpleITK")
+            path_corrupted_nifti = image_path
+            sitk_img = sitk.ReadImage(path_corrupted_nifti) # load with SimpleITK
+            sitk.WriteImage(sitk_img, path_corrupted_nifti) # overwrite
+            # try again after rewriting
+            try:
+                nifti_img = nib.load(image_path)
+                image_data = nifti_img.get_fdata()
+                image_shape = image_data.shape
+                print("Image dimensions after rewriting: ", image_shape)
+                return image_shape
+            except Exception as e:
+                print(f"Error loading image: {image_path} after rewriting with SimpleITK. Error: {e}")
+                return None
+            
     def preprocess_image(self, image):
         # normalization
         image_data = (image_data - np.min(image_data)) / (np.max(image_data) - np.min(image_data))
@@ -189,11 +206,18 @@ def save_nifti(image_data, output_path, affine=None):
 
 # TRAINING 
 # image_paths and labels were previously imported (see imports)
+"""
 batch_size = 32 # num of samples in each batch
 train_generator = DataGenerator(image_paths, labels, batch_size=batch_size, shuffle=True) # instance of DataGenerator class
 #loads, preprocesses images and corresponding labels, shuffles after each epoch. 
-shape_image_path = image_paths[0] # used SOLELY for retrieving the shape of image to provide as an input for training
-image_shape = train_generator.get_nifti_shape(shape_image_path)
+"""
+
+shape_image_path = image_paths[1] # used SOLELY for retrieving the shape of image to provide as an input for training
+#image_shape = train_generator.get_nifti_shape(shape_image_path)
+print(shape_image_path)
+image_shape = DataGenerator.get_nifti_shape(shape_image_path)
+
+"""
 model, feature_maps = classification(input_shape=image_shape) # creation of 3D ResNet model using input shape
 # the function 'classification' returns two values: the model and the feature maps (for later visualization task) in a tuple. Listing both model and feature_maps will unpack the tuple
 model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
@@ -244,3 +268,4 @@ highlighted_image = visualization(image_data, feature_maps, threshold)
 output_path = 'output file location' # specify file path to save visualization
 save_nifti(highlighted_image, output_path, affine=provided_nifti_image.affine)
 # using the affine attribute of the original image ensures that the spatial orientation and transformation aligns correctly with the original image
+"""

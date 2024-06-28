@@ -1,8 +1,12 @@
 More formal, organized documentation other than program comments. 
 
 # Personal Notes
-  Goal: 30% testing data, 70% training data
+  Goal: 20% testing data, 80% training data
   Current Focuses:
+  - figure out error nibabel.filebasedimages.ImageFileError: File data/MRI-DWI/sub-1_rec-TRACE_dwi.nii.gz is not a gzip file
+  - test file retrieval
+  - implement resampling due to some files having different dimensions (can be changed in DataGenerator class -> __get_item__)
+  - Finalize how data will be split between testing and training
   - Importing data, image data and labels -> testing/evaluation data
   - Create output system that keeps track of training imports to keep track of program running during test trials
   - Look for any errors and debug
