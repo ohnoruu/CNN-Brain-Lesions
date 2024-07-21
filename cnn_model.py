@@ -206,18 +206,13 @@ def save_nifti(image_data, output_path, affine=None):
 
 # TRAINING 
 # image_paths and labels were previously imported (see imports)
-"""
 batch_size = 32 # num of samples in each batch
 train_generator = DataGenerator(image_paths, labels, batch_size=batch_size, shuffle=True) # instance of DataGenerator class
 #loads, preprocesses images and corresponding labels, shuffles after each epoch. 
-"""
 
 shape_image_path = image_paths[1] # used SOLELY for retrieving the shape of image to provide as an input for training
-#image_shape = train_generator.get_nifti_shape(shape_image_path)
-print(shape_image_path)
-image_shape = DataGenerator.get_nifti_shape(shape_image_path)
+image_shape = train_generator.get_nifti_shape(shape_image_path)
 
-"""
 model, feature_maps = classification(input_shape=image_shape) # creation of 3D ResNet model using input shape
 # the function 'classification' returns two values: the model and the feature maps (for later visualization task) in a tuple. Listing both model and feature_maps will unpack the tuple
 model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
@@ -253,6 +248,7 @@ model.fit(
     callbacks=[checkpoint_callback]
 )
 
+"""
 # VISUALIZATION
 # Getting image shape and data:
 input_image_path = testing_paths[1] # path to image that will be used for evaluation
