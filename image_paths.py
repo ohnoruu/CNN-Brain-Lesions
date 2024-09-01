@@ -1,6 +1,6 @@
 # when pasting from easystrokefileinput.py, use keyboard shortcut Shift+Tab to unindent
 # Most common dimensions: 224, 224, 26,1 (TRACE files) 
-# exceptions - sub 1 (256, 256, 26,1) and sub 10 (224,224,25,1) 
+# exceptions - sub 1 (256, 256, 26,1) and sub 10 (224,224,25,1)
 image_paths = [
     'data\MRI-DWI\sub-1_dwi_sub-1_rec-TRACE_dwi.nii.gz',
     'data\MRI-DWI\sub-2_dwi_sub-2_rec-TRACE_dwi.nii.gz',

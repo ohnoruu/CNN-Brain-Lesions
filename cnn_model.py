@@ -211,6 +211,7 @@ train_generator = DataGenerator(image_paths, labels, batch_size=batch_size, shuf
 #loads, preprocesses images and corresponding labels, shuffles after each epoch. 
 
 shape_image_path = image_paths[1] # used SOLELY for retrieving the shape of image to provide as an input for training
+# subject 2 (index 1) will be used as subject 1 has a different shape than usual
 image_shape = train_generator.get_nifti_shape(shape_image_path)
 
 model, feature_maps = classification(input_shape=image_shape) # creation of 3D ResNet model using input shape
