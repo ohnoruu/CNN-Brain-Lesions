@@ -2,14 +2,17 @@ import requests
 import os
 import nibabel as nib
 
+# urls from OpenNeuro 
 from image_paths import image_urls
 from labels import label_urls
 
+# relative file paths, used to test file validity after importing from OpenNeuro
 from image_paths import image_paths
 from labels import labels
 
 image_output_dir = 'data\MRI-DWI'
 labels_output_dir = r'data\annotations'
+#training_output_dir = 
 
 os.makedirs(image_output_dir, exist_ok=True)
 os.makedirs(labels_output_dir, exist_ok=True)
@@ -29,6 +32,7 @@ def download_file(url, output_dir):
         print(f"File {filename} already exists, skipping download.")
 
 """
+# import all
 # MRI Images
 for url in image_urls:
     download_file(url, image_output_dir)
@@ -38,8 +42,27 @@ for url in label_urls:
     download_file(url, labels_output_dir)
 
 print("Upload complete.")
+
+# testing images 
 """
 
+# import within specific range 
+# MRI Images
+MRI_url = 1 # start of range
+for i in range(1,500):
+    download_file(MRI_url, image_output_dir)
+    MRI_url += 1 
+
+# annotations 
+label_url = 1 # start of range
+for i in range(1,500):
+    download_file(label_url, labels_output_dir)
+    label_url += 1
+    
+# testing images    
+
+
+"""
 # test file validity
 test_image = image_paths[0]
 test_label = labels[0]
@@ -52,3 +75,4 @@ label_data = nifti_label.get_fdata()
 print(f"Loaded {test_image} with shape {img_data.shape}")
 print(f"Loaded {test_label} with shape {label_data.shape}") 
 # Success! Loaded image shape successfully.
+"""
