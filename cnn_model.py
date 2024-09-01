@@ -227,6 +227,7 @@ model.fit(train_generator, epochs=epochs) # initiate training
 # trains model using data generator for 10 epochs.
 # the first parameter of model.fit, x, is the input data. In this case, the input data is an instance of the class DataGenerator, which returns both labels and patient data as NumPy arrays.
 
+"""
 # SAVING MODEL AND TRAINING WEIGHTS
 checkpoint_directory = 'model_checkpoints' # provide file path later to upload data to computer
 os.makedirs(checkpoint_directory, exist_ok=True) # create checkpoint directory
@@ -249,7 +250,6 @@ model.fit(
     callbacks=[checkpoint_callback]
 )
 
-"""
 # VISUALIZATION
 # Getting image shape and data:
 input_image_path = testing_paths[1] # path to image that will be used for evaluation

@@ -1,6 +1,6 @@
 import gzip
 import shutil
-import os 
+import os
 import zipfile
 import nibabel as nib
 
