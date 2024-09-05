@@ -6,14 +6,15 @@ from image_paths import image_paths
 
 def resize_image(image, target_size):
     if image.shape != target_size:
-        resized_data = scipy.ndimage.zoom(image, [
-            target_size[0] / image.shape[0], # width
-            target_size[1] / image.shape[1], # height
-            target_size[2] / image.shape[2], # depth
-            target_size[3] / image.shape[3] # channels
-        ])
-        new_image = nib.Nifti1Image(resized_data, image.affine)
-
+        if len(image.shape) == 3: # in case some labels are 3D files
+            target_size = target_size[:3] # remove channel dimension
+        zoom_factors = [t / s for t, s in zip(target_size, image.shape)]
+        resized_data = scipy.ndimage.zoom(image, zoom_factors, order=3) # uses cubic interpolation
+        return resized_data
+    else:
+        print("Image already has the target size (224, 224, 26, 1)")
+        return image
+    
 if __name__ == '__main__':
     nifti_file_path = image_paths[0] # sub-1 (exception)
     # Most common dimensions: 224, 224, 26,1 (TRACE files)
@@ -23,3 +24,5 @@ if __name__ == '__main__':
     resized_image = resize_image(image_data, target_size)
     print(f'Original shape: {image_data.shape}')
     print(f'Resized shape: {resized_image.shape}')
+    
+# first test successful
