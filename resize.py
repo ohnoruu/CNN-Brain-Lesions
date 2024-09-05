@@ -30,11 +30,18 @@ if __name__ == '__main__':
     print(f'Resized shape: {resized_image.shape}')
 # first test successful
 """
+
 target_size = [224, 224, 26, 1]
 # MRI training images
 for image in image_paths:
-    if image.shape != target_size: 
+    if image.shape != target_size:
         nifti_img = nib.load(image)
         image_data = nifti_img.get_fdata()
         resized_image = resize_image(image_data, target_size)
         # convert back to numpy array 
+        # return np.array(preprocessed_images), np.array(batch_labels)
+        print(f"Resized {image} with dimensions {image.shape} to {resized_image.shape}")
+        return np.array(resized_image)
+    else: 
+        print(f"{image} already meets target size {target_size}, skipping resizing proocess.")
+        
