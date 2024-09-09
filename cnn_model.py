@@ -1,4 +1,5 @@
 # imports
+import tensorflow as tf
 from tensorflow.keras.layers import Input, Conv3D, BatchNormalization, Activation, MaxPooling3D, GlobalAveragePooling3D, Dense 
 from tensorflow.keras.models import Model
 from tensorflow.keras.models import load_model
@@ -9,11 +10,6 @@ import numpy as np
 import os 
 import nibabel as nib
 import scipy.ndimage as ndi
-
-# file paths (see image_paths.py, labels.py, and testing_paths.py)
-from image_paths import image_paths
-from labels import labels
-from testing_paths import testing_paths
 
 """
 DataGenerator - summary
