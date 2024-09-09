@@ -14,7 +14,7 @@ from testing_paths import testing_paths
 
 image_output_dir = 'data\MRI-DWI'
 labels_output_dir = r'data\annotations'
-training_output_dir = r'data\testing'
+testing_output_dir = r'data\testing'
 
 os.makedirs(image_output_dir, exist_ok=True)
 os.makedirs(labels_output_dir, exist_ok=True)
@@ -45,7 +45,7 @@ for url in label_urls:
 
 # testing images 
 for url in testing_urls:
-    download_file(url, training_output_dir)
+    download_file(url, testing_output_dir)
 
 print("Upload complete.")
 """
@@ -83,4 +83,3 @@ print(f"Loaded {test_image} with shape {img_data.shape}")
 print(f"Loaded {test_label} with shape {label_data.shape}") 
 print(f"Loaded {test_testimg} with shape {testimg_data.shape}")
 # Success! Loaded image shape successfully.
-

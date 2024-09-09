@@ -2,7 +2,7 @@
 # Most common dimensions: 224, 224, 26,1 (TRACE files) 
 # exceptions - sub 1 (256, 256, 26,1) and sub 10 (224,224,25,1)
 
-# list length: 1164 
+# list length: 1164
 # subject num 1-1402 (training)
 
 labels = [ # the ground truth - annotations made by medical professionals
