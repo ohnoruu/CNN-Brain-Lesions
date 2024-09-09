@@ -211,6 +211,7 @@ train_generator = DataGenerator(image_paths, labels, batch_size=batch_size, shuf
 #loads, preprocesses images and corresponding labels, shuffles after each epoch. 
 
 shape_image_path = image_paths[1] # used SOLELY for retrieving the shape of image to provide as an input for training
+# subject 2 (index 1) will be used as subject 1 has a different shape than usual
 image_shape = train_generator.get_nifti_shape(shape_image_path)
 
 model, feature_maps = classification(input_shape=image_shape) # creation of 3D ResNet model using input shape
@@ -226,6 +227,7 @@ model.fit(train_generator, epochs=epochs) # initiate training
 # trains model using data generator for 10 epochs.
 # the first parameter of model.fit, x, is the input data. In this case, the input data is an instance of the class DataGenerator, which returns both labels and patient data as NumPy arrays.
 
+"""
 # SAVING MODEL AND TRAINING WEIGHTS
 checkpoint_directory = 'model_checkpoints' # provide file path later to upload data to computer
 os.makedirs(checkpoint_directory, exist_ok=True) # create checkpoint directory
@@ -248,7 +250,6 @@ model.fit(
     callbacks=[checkpoint_callback]
 )
 
-"""
 # VISUALIZATION
 # Getting image shape and data:
 input_image_path = testing_paths[1] # path to image that will be used for evaluation
