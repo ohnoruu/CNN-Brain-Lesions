@@ -4,6 +4,9 @@ from tensorflow.keras.utils import Sequence
 from tensorflow.keras.layers import Input, Conv3D, BatchNormalization, Activation, MaxPooling3D, GlobalAveragePooling3D, Dense
 from tensorflow.keras.models import Model
 import scipy.ndimage as ndi
+import logging
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # LOADING IN DATA (FOR TRAINING)
 # epoch - one complete pass through the ENTIRE training dataset during the training of the model
@@ -16,10 +19,12 @@ class DataGenerator(Sequence): # defines custom class that inherits from Keras S
         self.batch_size = batch_size 
         self.shuffle = shuffle 
         self.indexes = np.arange(len(self.images)) 
-        self.on_epoch_end() 
+        self.on_epoch_end()
+        logging.info(f"DataGenerator initialized with {len(self.images)} images and {len(self.labels)} labels.")
 
     def __len__(self):
         # returns number of batches per epoch 
+        logging.info(f"Number of batches per epoch: {len(self.images) // self.batch_size}")
         return len(self.images) // self.batch_size 
 
     def __getitem__(self, index):
@@ -31,16 +36,19 @@ class DataGenerator(Sequence): # defines custom class that inherits from Keras S
 
         #preprocess batch of images
         preprocessed_images = [self.preprocess_image(img.get_fdata()) for img in batch_images]
+        logging.info(f"Batch {index} loaded and preprocessed.")
         return np.array(preprocessed_images), np.array(batch_labels)
 
     def on_epoch_end(self):
         if self.shuffle == True:
             # if shuffle is true, NumPy will apply shuffle between epochs
+            logging.info("Shuffling data.")
             np.random.shuffle(self.indexes)
             
     def preprocess_image(self, image_data):
         # normalization
         image_data = (image_data - np.min(image_data)) / (np.max(image_data) - np.min(image_data))
+        logging.info("Completed preprocessing/normalization.")
         return image_data
 """
 Functions in tensorflow.keras

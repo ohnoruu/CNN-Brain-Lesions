@@ -17,18 +17,111 @@ import logging
 from filenames import training_names, label_names, testing_names
 # import components
 from components.mongofunctions import extract_subject_num, upload_nifti_files, retrieve_nifti
-from components.cnn_model import DataGenerator, classification, visualization, save_nifti
-
-# configuration for MongoDB
+from components.modelfunctions import DataGenerator, classification, visualization, save_nifti
 from credentials import MONGO_URI
-DB_NAME = 'lesion_dataset'
-client = MongoClient(MONGO_URI)
-db = client[DB_NAME]
-fs = gridfs.GridFS(db)
-fs_training_images = gridfs.GridFS(db, collection='training_images')
-fs_labels = gridfs.GridFS(db, collection='labels')
-fs_testing_images = gridfs.GridFS(db, collection='testing_images')
 
+class LesionModel:
+    def __init__(self, db_name='lesion_dataset', batch_size=32, epochs=10, checkpoint_dir='checkpoints'):
+        # configuration for MongoDB
+        self.mongo_uri = MONGO_URI
+        self.db_name = db_name
+        self.client = MongoClient(self.mongo_uri)
+        self.db = self.client[self.db_name]
+        # GridFS instances for MongoDB data locations
+        self.fs_training_images = gridfs.GridFS(self.db, collection='training_images')
+        self.fs_labels = gridfs.GridFS(self.db, collection='labels')
+        self.fs_testing_images = gridfs.GridFS(self.db, collection='testing_images')
+
+        logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+        
+        # initialize model parameters
+        self.batch_size = batch_size
+        self.epochs = epochs
+        self.checkpoint_dir = checkpoint_dir
+        self.training_data = []
+        self.labels=[]
+        self.train_generator = None
+        self.model = None
+        self.feature_maps = None
+
+    def load_training_data(self):
+        for name in training_names:
+            image_data = retrieve_nifti(name, self.fs_training_images)
+            self.training_data.append(image_data)
+
+        for name in label_names:
+            label_data = retrieve_nifti(name, self.fs_labels)
+            self.labels.append(label_data)
+
+        # initialize DataGenerator
+        self.train_generator = DataGenerator(self.training_data, self.labels, batch_size=self.batch_size, shuffle=True)
+        logging.info(f"Training data loaded with {len(self.training_data)} images and {len(self.labels)} labels.")
+
+    def build_model(self):
+        # get shape reference to provide as a parameter to the classification function. all images in dataset are already resized to the same shape
+        shape_reference = retrieve_nifti(training_names[0], self.fs_training_images)
+        input_shape = shape_reference.get_fdata().shape
+        # call classification function to build model. feature_maps returned for visualization
+        self.model, self.feature_maps = classification(input_shape)
+        self.model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+        logging.info("Model built and compiled.")
+
+    def train_model(self):
+        # create checkpoint directory to save training weights
+        os.makedirs(self.checkpoint_dir, exist_ok=True)
+        checkpoint_path = os.path.join(self.checkpoint_dir, 'model.h5')
+
+        checkpoint_callback = ModelCheckpoint(
+            filepath=checkpoint_path,
+            monitor='val_accuracy', # monitor accuracy
+            mode='max', # refers to goal of maximizing accuracy
+            save_best_only=True, # saves most accurate model
+            save_weights_only=True,
+            verbose=1 # specifies output (1 for print)
+        )
+
+        self.model.fit(
+            self.train_generator,
+            epochs=self.epochs,
+            callbacks=[checkpoint_callback]
+        )
+        logging.info("Training weights saved and model training was completed.")
+
+    def visualize_results(self, input_image_path, threshold=0.5):
+        provided_nifti_image = nib.load(input_image_path)
+        image_data = provided_nifti_image.get_fdata()
+
+        # visualize using feature maps (retrieved from classification function)
+        highlighted_image = visualization(image_data, self.feature_maps, threshold)
+        return highlighted_image
+    
+    def save_visualization(self, highlighted_image, output_path, affine):
+        save_nifti(highlighted_image, output_path, affine)
+        logging.info(f"Visualization saved to {output_path}.")
+
+    def close_connection(self):
+        self.client.close()
+        logging.info("MongoDB connection closed.")
+
+# Usage
+if __name__ == '__main__':
+    trainer = LesionModel()
+    trainer.load_training_data()
+    trainer.build_model()
+    trainer.train_model()
+
+    """
+    # Visualization/Testing
+    input_image_path = testing_names[1]
+    highlighted_image = trainer.visualize_results(input_image_path)
+    output_path = 'testing'
+    provided_nifti_image = nib.load(input_image_path)
+    trainer.save_visualization(highlighted_image, output_path, provided_nifti_image.affine)
+    trainer.close_connection()
+    """
+
+"""
+OLD CODE:
 # TRAINING 
 # image_paths and labels were previously imported (see imports)
 batch_size = 32 # num of samples in each batch
@@ -65,10 +158,10 @@ model.fit(train_generator, epochs=epochs) # initiate training
 
 
 # SAVING MODEL AND TRAINING WEIGHTS
-checkpoint_directory = 'model_checkpoints' # provide file path later to upload data to computer
-os.makedirs(checkpoint_directory, exist_ok=True) # create checkpoint directory
+checkpoint_directory = 'checkpoints'
+os.makedirs(checkpoint_directory, exist_ok=True)
 
-checkpoint_path = os.path.join(checkpoint_directory, 'model_checkpoint.h5')
+checkpoint_path = os.path.join(checkpoint_directory, 'model.h5')
 # specifies path where model checkpoints will be saved
 
 checkpoint_callback = ModelCheckpoint(
@@ -86,8 +179,10 @@ model.fit(
     callbacks=[checkpoint_callback]
 )
 
-"""
-# VISUALIZATION
+# model.load_weights(checkpoint_path)
+
+
+# VISUALIZATION / TESTING   
 # Getting image shape and data:
 input_image_path = testing_paths[1] # path to image that will be used for evaluation
 provided_nifti_image = nib.load(input_image_path) # load in NIfTI image
