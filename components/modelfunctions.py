@@ -1,5 +1,6 @@
 import numpy as np
 import nibabel as nib
+import tensorflow as tf
 from tensorflow.keras.utils import Sequence
 from tensorflow.keras.layers import Input, Conv3D, BatchNormalization, Activation, MaxPooling3D, GlobalAveragePooling3D, Dense
 from tensorflow.keras.models import Model
@@ -112,7 +113,10 @@ def visualization(image_data, feature_maps, threshold):
     Returns:
     - highlighted_image: np.ndarray, MRI image with highlighted stroke areas
     """
-
+    # convert feature_maps to numpy array if it is a TensorFlow tensor
+    if isinstance(feature_maps, tf.Tensor):
+        logging.info(f"Provided data {feature_maps} is a TensorFlow tensor. Converting to numpy array.")
+        feature_maps = feature_maps.numpy()
     # apply threshold to feature maps to identify stroke areas
     stroke_map = feature_maps > threshold
     # identifies areas of stroke concern by highlighting parts of the brain that indicate a stroke probability higher than the threshold (50%)

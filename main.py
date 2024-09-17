@@ -1,9 +1,9 @@
 # imports
 import tensorflow as tf
-from tensorflow.python.keras.layers import Input, Conv3D, BatchNormalization, Activation, MaxPooling3D, GlobalAveragePooling3D, Dense 
-from tensorflow.python.keras.models import Model, load_model
-from tensorflow.python.keras.utils import Sequence
-from tensorflow.python.keras.callbacks import ModelCheckpoint
+from tensorflow.keras.layers import Input, Conv3D, BatchNormalization, Activation, MaxPooling3D, GlobalAveragePooling3D, Dense 
+from tensorflow.keras.models import Model, load_model
+from tensorflow.keras.utils import Sequence
+from tensorflow.keras.callbacks import ModelCheckpoint
 from pymongo import MongoClient
 import gridfs
 import re
@@ -43,6 +43,7 @@ class LesionModel:
         self.train_generator = None
         self.model = None
         self.feature_maps = None
+        self.feature_maps_path = 'feature_maps.npy' # subject to change later
 
     def load_training_data(self):
         for name in training_names:
@@ -63,6 +64,9 @@ class LesionModel:
         input_shape = shape_reference.get_fdata().shape
         # call classification function to build model. feature_maps returned for visualization
         self.model, self.feature_maps = classification(input_shape)
+        # save feature_maps
+        feature_maps_np = self.feature_maps.numpy()
+        np.save('feature_maps.npy', feature_maps_np)
         self.model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
         logging.info("Model built and compiled.")
 
@@ -87,10 +91,11 @@ class LesionModel:
         )
         logging.info("Training weights saved and model training was completed.")
 
-    def visualize_results(self, input_image_path, threshold=0.5):
+    def visualize_results(self, input_image_path, feature_maps_path, threshold=0.5):
         provided_nifti_image = nib.load(input_image_path)
         image_data = provided_nifti_image.get_fdata()
-
+        # load feature maps from file directory
+        feature_maps_np = np.load(feature_maps_path)
         # visualize using feature maps (retrieved from classification function)
         highlighted_image = visualization(image_data, self.feature_maps, threshold)
         return highlighted_image

@@ -3,11 +3,8 @@ More formal, organized documentation other than program comments.
 # Personal Notes
   Goal: 20% testing data, 80% training data
   Current Focuses:
-  - find dataset that contains control data (some of the current data have data with very little lesions, but its best to have an absolute control)
-  - implement control data into dataset, maybe modify classification code
-  - implement resizing due to some files having different dimensions (can be changed in DataGenerator class -> __get_item__)
-  - Create output system that keeps track of training imports to keep track of program running during test trials
-  - Create output directory for evaluation
+  - configure accuracy evaluation
+  - create save function for feature_maps
 
   Later Focuses:
    - Compile visualization task

@@ -1,3 +1,6 @@
+import re
+from components.mongofunctions import extract_subject_num
+
 training_names = [
     'sub-1_dwi_sub-1_rec-TRACE_dwi.nii.gz',
     'sub-2_dwi_sub-2_rec-TRACE_dwi.nii.gz',
@@ -2624,3 +2627,22 @@ testing_names = [
     'sub-1737_dwi_sub-1737_rec-TRACE_dwi.nii.gz',
 ]
 print(len(testing_names))
+
+def check_subject_alignment(training_names, label_names):
+    if len(training_names) != len(label_names):
+        print(f"Mismatch in number of images ({len(training_names)}) and labels ({len(label_names)})")
+        return False
+    
+    for img, lbl in zip(training_names, label_names):
+        img_subject = extract_subject_num(img)
+        lbl_subject = extract_subject_num(lbl)
+        
+        if img_subject != lbl_subject:
+            print(f"Mismatch: Image '{img}' and Label '{lbl}' do not correspond to the same subject.")
+            return False
+    
+    print("All subjects in images and labels match.")
+    return True
+
+check_subject_alignment(training_names, label_names)
+# success - all subjects in images and labels match
