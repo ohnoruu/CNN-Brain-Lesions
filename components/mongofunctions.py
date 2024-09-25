@@ -50,7 +50,7 @@ def upload_nifti_files(directory, fs):
             except Exception as e:
                 logging.error(f"Error uploading {file} to MongoDB: {e}")
 
-def retrieve_nifti(filename, fs):
+def retrieve_nifti(filename, fs): # Searches for file by name and retrieves from MongoDB
     # Find filename
     grid_out = fs.find_one({"filename": filename})
     if grid_out:

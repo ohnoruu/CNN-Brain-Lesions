@@ -51,14 +51,14 @@ class DataGenerator(Sequence): # defines custom class that inherits from Keras S
         image_data = (image_data - np.min(image_data)) / (np.max(image_data) - np.min(image_data))
         logging.info("Completed preprocessing/normalization.")
         return image_data
-"""
-Functions in tensorflow.keras
-Input - defines input layer
-Conv3D - creates 3D Convolutional layer
-Model - creates neural network, defines architecture by specifying input and output layers of the model
-"""
 
 def classification(input_shape):
+    """
+    Functions in tensorflow.keras
+    Input - defines input layer
+    Conv3D - creates 3D Convolutional layer
+    Model - creates neural network, defines architecture by specifying input and output layers of the model
+    """
     # define 3D ResNet model using Keras
     inputs = Input(shape=input_shape)
     # creates an input layer for the model with the specified input shape
@@ -85,10 +85,7 @@ def classification(input_shape):
     x = BatchNormalization()(x)
     x = Activation('relu')(x)
     x = MaxPooling3D(pool_size=(2,2,2))(x)
-
-    feature_maps = x
-    # extract features from the data to use for visualization task
-
+    # define 3D ResNet model using Keras
     x = GlobalAveragePooling3D()(x)
     # reduces the dimensions of the data by taking avg of all elements in each feature map
     # data is reduced to a 1D vector --> passed to dense layer for classification
@@ -99,48 +96,30 @@ def classification(input_shape):
     # model creation
     # input - specifies input layer
     # output - specifies output layer
-    return model, feature_maps
+    return model # return keras model object
 
-def visualization(image_data, feature_maps, threshold):
+def visualization(input_image, model, threshold=0.5):
     """
     Apply thresholding to feature maps and visualize stroke areas in the MRI image.
     
     Parameters:
-    - image_data: np.ndarray, original MRI image data
-    - feature_maps: np.ndarray, feature maps from the model
+    - input_image: np.ndarray, input MRI image data
+    - model: trained keras model weights
     - threshold: float, threshold to apply on feature maps to identify stroke areas
     
     Returns:
     - highlighted_image: np.ndarray, MRI image with highlighted stroke areas
     """
-    # convert feature_maps to numpy array if it is a TensorFlow tensor
-    if isinstance(feature_maps, tf.Tensor):
-        logging.info(f"Provided data {feature_maps} is a TensorFlow tensor. Converting to numpy array.")
-        feature_maps = feature_maps.numpy()
-    # apply threshold to feature maps to identify stroke areas
-    stroke_map = feature_maps > threshold
-    # identifies areas of stroke concern by highlighting parts of the brain that indicate a stroke probability higher than the threshold (50%)
-    
-    stroke_areas = ndi.binary_opening(stroke_map, structure=np.ones((3,3,3)))
-    # binary opening - removes small white regions from the image that are surrounded by black pixels
-    # used to seperate objects close to each other to visualize stroke areas
-    # maps out areas of stroke concern
-    highlighted_image = np.copy(image_data)
-    highlighted_image[stroke_map] = 255 # highlight stroke areas with white color
+    feature_maps = model.predict(input_image[np.newaxis, ...])
 
+    stroke_map = feature_maps > threshold
+    stroke_areas = ndi.binary_opening(stroke_map, structure=np.ones((3,3,3)))
+    # maps out areas of stroke concern
+    highlighted_image = np.copy(input_image)
+    highlighted_image[stroke_areas] = 255 # highlight stroke areas with white color
+    
     return highlighted_image
 
 def save_nifti(image_data, output_path, affine=None):
-    """
-    Save the given image data as a NIfTI file. (this is mainly meant for after visualization)
-    
-    Parameters:
-    - image_data: np.ndarray, image data to be saved
-    - output_path: str, path to save the NIfTI file
-    - affine: np.ndarray, affine transformation matrix for the NIfTI file, defines spatial orientation of the image within the 3D space
-    """
-
-    # Create a NIfTI image
     nifti_img = nib.Nifti1Image(image_data, affine=affine)
-    # Save image
     nib.save(nifti_img, output_path)

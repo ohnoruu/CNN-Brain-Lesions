@@ -1,9 +1,9 @@
 # imports
 import tensorflow as tf
-from tensorflow.keras.layers import Input, Conv3D, BatchNormalization, Activation, MaxPooling3D, GlobalAveragePooling3D, Dense 
-from tensorflow.keras.models import Model, load_model
-from tensorflow.keras.utils import Sequence
-from tensorflow.keras.callbacks import ModelCheckpoint
+from tensorflow.python.keras.layers import Input, Conv3D, BatchNormalization, Activation, MaxPooling3D, GlobalAveragePooling3D, Dense 
+from tensorflow.python.keras.models import Model, load_model
+from tensorflow.python.keras.utils import Sequence
+from tensorflow.python.keras.callbacks import ModelCheckpoint
 from pymongo import MongoClient
 import gridfs
 import re
@@ -42,8 +42,6 @@ class LesionModel:
         self.labels=[]
         self.train_generator = None
         self.model = None
-        self.feature_maps = None
-        self.feature_maps_path = 'feature_maps.npy' # subject to change later
 
     def load_training_data(self):
         for name in training_names:
@@ -63,10 +61,7 @@ class LesionModel:
         shape_reference = retrieve_nifti(training_names[0], self.fs_training_images)
         input_shape = shape_reference.get_fdata().shape
         # call classification function to build model. feature_maps returned for visualization
-        self.model, self.feature_maps = classification(input_shape)
-        # save feature_maps
-        feature_maps_np = self.feature_maps.numpy()
-        np.save('feature_maps.npy', feature_maps_np)
+        self.model = classification(input_shape)
         self.model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
         logging.info("Model built and compiled.")
 
@@ -91,14 +86,37 @@ class LesionModel:
         )
         logging.info("Training weights saved and model training was completed.")
 
-    def visualize_results(self, input_image_path, feature_maps_path, threshold=0.5):
-        provided_nifti_image = nib.load(input_image_path)
+    def visualize_results(self, image_name, fs): # used for visualizing single nifti images (not specific to the ones in the dataset)
+        os.makedirs('testview', exist_ok=True) # ensure output directory exists
+        provided_nifti_image = retrieve_nifti(image_name, fs)
+        #provided_nifti_image = nib.load(input_image_path)
         image_data = provided_nifti_image.get_fdata()
-        # load feature maps from file directory
-        feature_maps_np = np.load(feature_maps_path)
+        self.model.load_weights(os.path.join(self.checkpoint_dir, 'model.h5'))
         # visualize using feature maps (retrieved from classification function)
-        highlighted_image = visualization(image_data, self.feature_maps, threshold)
+        highlighted_image = visualization(image_data, self.model) # default threshold = 0.5
+        
+        filename = os.path.basename(image_name)
+        output_path = os.path.join('testview', filename)
+
+        nib.save(highlighted_image, output_path)
+        logging.info(f"Image {filename} saved to {output_path}.")
         return highlighted_image
+    
+    def visualize_all(self, testing_names, threshold=0.5): # used to retrieve all images in a MongoDB collection, most likely for testing process
+        os.makedirs('testview', exist_ok=True) # ensure output directory exists
+        self.model.load_weights(os.path.join(self.checkpoint_dir, 'model.h5'))
+        for name in testing_names:
+            nifti_image = retrieve_nifti(name, self.fs_testing_images)
+            image_data = nifti_image.get_fdata()
+            highlighted_nifti = visualization(image_data, self.model, threshold)
+
+            filename = os.path.basename(name)
+            output_path = os.path.join('testview', filename)
+
+            nib.save(highlighted_nifti, output_path)
+            logging.info(f"Image {filename} saved to {output_path}.")
+
+        logging.info("All visualizations saved.")
     
     def save_visualization(self, highlighted_image, output_path, affine):
         save_nifti(highlighted_image, output_path, affine)
@@ -110,19 +128,27 @@ class LesionModel:
 
 # Usage
 if __name__ == '__main__':
-    trainer = LesionModel()
-    trainer.load_training_data()
-    trainer.build_model()
-    trainer.train_model()
+    model = LesionModel()
+    model.load_training_data()
+    model.build_model()
+    model.train_model()
+
+    model.visualize_results('image_name', model.fs_testing_images) # can refer to filenames.py to get image_name
+    
+    model.visualize_all(testing_names)
 
     """
     # Visualization/Testing
-    input_image_path = testing_names[1]
-    highlighted_image = trainer.visualize_results(input_image_path)
-    output_path = 'testing'
+    input_image_path = 'path_to_nifti_image'
     provided_nifti_image = nib.load(input_image_path)
-    trainer.save_visualization(highlighted_image, output_path, provided_nifti_image.affine)
-    trainer.close_connection()
+    input_image = provided_nifti_image.get_fdata()
+    
+    # Visualize using the modified function
+    highlighted_image = visualization(input_image)
+    
+    # Save visualization if needed
+    output_path = 'output_file_location'
+    nib.save(nib.Nifti1Image(highlighted_image, provided_nifti_image.affine), output_path)
     """
 
 """
