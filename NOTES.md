@@ -3,6 +3,7 @@ More formal, organized documentation other than program comments.
 # Personal Notes
   Goal: 20% testing data, 80% training data
   Current Focuses:
+  - create function of model class to evaluate accuracy using files inside testview (annotated files for testing sample)
   - configure accuracy evaluation
   - create save function for feature_maps
 
