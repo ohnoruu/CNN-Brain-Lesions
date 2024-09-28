@@ -38,7 +38,7 @@ class DataGenerator(Sequence): # defines custom class that inherits from Keras S
         #preprocess batch of images
         preprocessed_images = [self.preprocess_image(img.get_fdata()) for img in batch_images]
         logging.info(f"Batch {index} loaded and preprocessed.")
-        return np.array(preprocessed_images), np.array(batch_labels)
+        return np.array(preprocessed_images), np.array(batch_labels) # returns batch of images and labels as numpy arrays
 
     def on_epoch_end(self):
         if self.shuffle == True:
@@ -110,7 +110,7 @@ def visualization(input_image, model, threshold=0.5):
     Returns:
     - highlighted_image: np.ndarray, MRI image with highlighted stroke areas
     """
-    feature_maps = model.predict(input_image[np.newaxis, ...])
+    feature_maps = model.predict(input_image[np.newaxis, ...]) # used to make compatible with model input shape that includes batch dimension
 
     stroke_map = feature_maps > threshold
     stroke_areas = ndi.binary_opening(stroke_map, structure=np.ones((3,3,3)))
@@ -118,7 +118,7 @@ def visualization(input_image, model, threshold=0.5):
     highlighted_image = np.copy(input_image)
     highlighted_image[stroke_areas] = 255 # highlight stroke areas with white color
     
-    return highlighted_image
+    return highlighted_image # returns highlighted_image as a numpy array, save_nifti can be used to save the image
 
 def save_nifti(image_data, output_path, affine=None):
     nifti_img = nib.Nifti1Image(image_data, affine=affine)

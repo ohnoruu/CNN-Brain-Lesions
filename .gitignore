@@ -2,8 +2,10 @@ __pycache__
 credentials.py
 neuroimport.py
 testinglabelpaths.py
+test.py
 *.h5
 checkpoints/
+tempdata/
 testview/
 testinglabels/
 *nii

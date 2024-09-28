@@ -1,5 +1,4 @@
 import re
-from components.mongofunctions import extract_subject_num
 
 training_names = [
     'sub-1_dwi_sub-1_rec-TRACE_dwi.nii.gz',
@@ -2628,6 +2627,7 @@ testing_names = [
 ]
 print(len(testing_names))
 
+"""
 def check_subject_alignment(training_names, label_names):
     if len(training_names) != len(label_names):
         print(f"Mismatch in number of images ({len(training_names)}) and labels ({len(label_names)})")
@@ -2646,3 +2646,4 @@ def check_subject_alignment(training_names, label_names):
 
 check_subject_alignment(training_names, label_names)
 # success - all subjects in images and labels match
+"""

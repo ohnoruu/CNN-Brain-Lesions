@@ -54,13 +54,14 @@ class LesionModel:
 
         # initialize DataGenerator
         self.train_generator = DataGenerator(self.training_data, self.labels, batch_size=self.batch_size, shuffle=True)
+        # batches of labels and image data is returned as NumPy arrays
         logging.info(f"Training data loaded with {len(self.training_data)} images and {len(self.labels)} labels.")
 
     def build_model(self):
         # get shape reference to provide as a parameter to the classification function. all images in dataset are already resized to the same shape
         shape_reference = retrieve_nifti(training_names[0], self.fs_training_images)
         input_shape = shape_reference.get_fdata().shape
-        # call classification function to build model. feature_maps returned for visualization
+        # call classification function to build model. returns model to compile
         self.model = classification(input_shape)
         self.model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
         logging.info("Model built and compiled.")
@@ -80,7 +81,7 @@ class LesionModel:
         )
 
         self.model.fit(
-            self.train_generator,
+            self.train_generator, # training data returned by DataGenerator as NumPy arrays
             epochs=self.epochs,
             callbacks=[checkpoint_callback]
         )
@@ -94,11 +95,13 @@ class LesionModel:
         self.model.load_weights(os.path.join(self.checkpoint_dir, 'model.h5'))
         # visualize using feature maps (retrieved from classification function)
         highlighted_image = visualization(image_data, self.model) # default threshold = 0.5
-        
+        # after visualization highlighted_image is returned as a numpy array
+        highlighted_nifti = nib.Nifti1Image(highlighted_image, provided_nifti_image.affine) # converts numpy array to NIfTI image
+
         filename = os.path.basename(image_name)
         output_path = os.path.join('testview', filename)
 
-        nib.save(highlighted_image, output_path)
+        nib.save(highlighted_nifti, output_path)
         logging.info(f"Image {filename} saved to {output_path}.")
         return highlighted_image
     
@@ -133,9 +136,9 @@ if __name__ == '__main__':
     model.build_model()
     model.train_model()
 
-    model.visualize_results('image_name', model.fs_testing_images) # can refer to filenames.py to get image_name
+    #model.visualize_results('image_name', model.fs_testing_images) # can refer to filenames.py to get image_name
     
-    model.visualize_all(testing_names)
+    #model.visualize_all(testing_names)
 
     """
     # Visualization/Testing

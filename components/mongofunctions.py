@@ -6,6 +6,7 @@ import numpy as np
 from pymongo import MongoClient
 import gridfs
 
+from filenames import training_names, label_names, testing_names
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 # Configuration
 from credentials import MONGO_URI
@@ -84,3 +85,23 @@ def retrieve_nifti(filename, fs): # Searches for file by name and retrieves from
     else:
         logging.warning(f"File {filename} not found in MongoDB.")
         return None
+
+# Retrieve and save NiFTi images
+def save_retrieved_nifti(filename, fs, output_dir):
+    nifti_img = retrieve_nifti(filename, fs)
+    if nifti_img:
+        output_path = os.path.join(output_dir, filename)
+        nib.save(nifti_img, output_path)
+        logging.info(f"Saved {filename} to {output_path}")
+        return output_path
+    return None
+
+
+# Ensure output directory exists
+output_dir = 'testview'
+os.makedirs(output_dir, exist_ok=True)
+
+# Example usage
+save_retrieved_nifti(training_names[0], fs_training_images, output_dir)
+save_retrieved_nifti(label_names[0], fs_labels, output_dir)
+save_retrieved_nifti(testing_names[0], fs_testing_images, output_dir)
