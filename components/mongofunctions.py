@@ -21,6 +21,7 @@ fs = gridfs.GridFS(db)
 fs_training_images = gridfs.GridFS(db, collection='training_images')
 fs_labels = gridfs.GridFS(db, collection='labels')
 fs_testing_images = gridfs.GridFS(db, collection='testing_images')
+fs_testing_labels = gridfs.GridFS(db, collection='testing_labels')
 
 # MongoDB functions
 def extract_subject_num(file):
@@ -105,10 +106,8 @@ def retrieve_nifti(filename, fs):
             affine_matrix = np.array(grid_out.metadata['affine'])  # Convert list back to NumPy array
             logging.info(f"Affine matrix loaded for {filename}")
 
-            # Create a NIfTI image from the numpy array and the affine matrix
-            nifti_img = nib.Nifti1Image(image_data, affine=affine_matrix)
-            logging.info(f"Loaded {filename} with shape {nifti_img.get_fdata().shape} and affine matrix.")
-            return nifti_img
+            logging.info(f"Loaded {filename} with shape {image_data.shape} and affine matrix.")
+            return image_data, affine_matrix # affine_matrix is provided just in case but is not needed for training and main purposes
         except Exception as e:
             logging.error(f"Error loading {filename} from MongoDB: {e}")
     else:
@@ -125,30 +124,25 @@ def save_retrieved_nifti(filename, fs, output_dir):
         return output_path
     return None
 
-#upload_single_nifti_file('tempdata\images\sub-1_dwi_sub-1_rec-TRACE_dwi.nii.gz', fs_training_images)
-#retrieve_nifti('sub-1_dwi_sub-1_rec-TRACE_dwi.nii.gz', fs_training_images)
-#save_retrieved_nifti('sub-1_dwi_sub-1_rec-TRACE_dwi.nii.gz', fs_training_images, 'testview')
-#upload_single_nifti_file('tempdata\labels\derivatives_lesion_masks_sub-2_dwi_sub-2_space-TRACE_desc-lesion_mask.nii.gz', fs_training_images)
-#retrieve_nifti('derivatives_lesion_masks_sub-2_dwi_sub-2_space-TRACE_desc-lesion_mask.nii.gz', fs_training_images)
-#save_retrieved_nifti('derivatives_lesion_masks_sub-2_dwi_sub-2_space-TRACE_desc-lesion_mask.nii.gz', fs_training_images, 'testview')
-#retrieve_nifti('sub-1_dwi_sub-1_rec-TRACE_dwi.nii.gz', fs_training_images)
-
-#TESTS WERE SUCCESSFUL, UPLOAD AND RETRIEVAL WORKS
-
 """
 # Ensure output directory exists
 output_dir = 'testview'
+target_index = 0
 os.makedirs(output_dir, exist_ok=True)
-
-# Example usage
-save_retrieved_nifti(training_names[0], fs_training_images, output_dir)
-save_retrieved_nifti(label_names[0], fs_labels, output_dir)
-save_retrieved_nifti(testing_names[0], fs_testing_images, output_dir)
+retrieve_nifti(training_names[target_index], fs_training_images)
+retrieve_nifti(label_names[target_index], fs_labels)
+retrieve_nifti(testing_names[target_index], fs_testing_images)
+save_retrieved_nifti(training_names[target_index], fs_training_images, output_dir)
+save_retrieved_nifti(label_names[target_index], fs_labels, output_dir)
+save_retrieved_nifti(testing_names[target_index], fs_testing_images, output_dir)
+# 9/29/2024 test successful.
 """
 
-upload_nifti_files('tempdata\images', fs_training_images)
-logging.info("MRI images (for training use) uploaded.")
-upload_nifti_files('tempdata\labels', fs_labels)
-logging.info("Annotations/labels uploaded.")
-upload_nifti_files('tempdata\testingimages', fs_testing_images)
-
+#upload_nifti_files('tempdata\images', fs_training_images)
+#logging.info("MRI images (for training use) uploaded.")
+#upload_nifti_files('tempdata\labels', fs_labels)
+#logging.info("Annotations/labels uploaded.")
+#upload_nifti_files(r'tempdata\testingimages', fs_testing_images)
+#logging.info("Testing images uploaded.")
+#upload_nifti_files(r'tempdata\testinglabels', fs_testing_labels)
+#logging.info("Testing labels uploaded.")

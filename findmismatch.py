@@ -41,8 +41,8 @@ def find_mismatched_files(folder1, folder2):
     return mismatched_files, extra_files_folder1, extra_files_folder2
 
 # Example usage
-folder1 = 'tempdata\images'
-folder2 = 'tempdata\labels'
+folder1 = r'tempdata\testingimages'
+folder2 = r'tempdata\testinglabels'
 
 mismatched_files, extra_files_folder1, extra_files_folder2 = find_mismatched_files(folder1, folder2)
 

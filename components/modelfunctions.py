@@ -18,7 +18,7 @@ class DataGenerator(Sequence): # defines custom class that inherits from Keras S
         self.images = images 
         self.labels = labels 
         self.batch_size = batch_size 
-        self.shuffle = shuffle 
+        self.shuffle = shuffle
         self.indexes = np.arange(len(self.images)) 
         self.on_epoch_end()
         logging.info(f"DataGenerator initialized with {len(self.images)} images and {len(self.labels)} labels.")
@@ -36,7 +36,7 @@ class DataGenerator(Sequence): # defines custom class that inherits from Keras S
         batch_labels = [self.labels[i] for i in indexes]
 
         #preprocess batch of images
-        preprocessed_images = [self.preprocess_image(img.get_fdata()) for img in batch_images]
+        preprocessed_images = [self.preprocess_image(img) for img in batch_images]
         logging.info(f"Batch {index} loaded and preprocessed.")
         return np.array(preprocessed_images), np.array(batch_labels) # returns batch of images and labels as numpy arrays
 
@@ -120,6 +120,6 @@ def visualization(input_image, model, threshold=0.5):
     
     return highlighted_image # returns highlighted_image as a numpy array, save_nifti can be used to save the image
 
-def save_nifti(image_data, output_path, affine=None):
+def save_nifti(image_data, output_path, affine): # this is only used to save the highlighted image to view in repository
     nifti_img = nib.Nifti1Image(image_data, affine=affine)
     nib.save(nifti_img, output_path)
