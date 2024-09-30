@@ -77,42 +77,54 @@ def upload_single_nifti_file(file_path, fs):
     else:
         logging.error(f"File {file_path} is not a NiFTi file.")
 
-def retrieve_nifti(filename, fs):
-    # Find filename
-    grid_out = fs.find_one({"filename": filename})
-    if grid_out:
+def retrieve_nifti(filename, fs, max_retries=50):
+    retries = 0
+    while retries < max_retries:
         try:
-            logging.info(f"Loading data for {filename}")
-            # Read binary data
-            binary_data = grid_out.read()
+            # Find the file by filename with no cursor timeout
+            grid_out = fs.find_one({"filename": filename})
             
-            # Check length of binary data
-            logging.info(f"Binary data length: {len(binary_data)}")
+            if grid_out:
+                logging.info(f"Loading data for {filename}")
+                # Read binary data in chunks
+                binary_data = b""
+                chunk_size = 1024 * 1024  # 1 MB chunks
+                while True:
+                    chunk = grid_out.read(chunk_size)
+                    if not chunk:
+                        break
+                    binary_data += chunk
+                
+                # Check length of binary data
+                logging.info(f"Binary data length: {len(binary_data)}")
 
-            # Convert bytes back to numpy array
-            image_data = np.frombuffer(binary_data, dtype=np.float64)
-            logging.info(f"Image data length: {len(image_data)}")
+                # Convert bytes back to numpy array
+                image_data = np.frombuffer(binary_data, dtype=np.float64)
+                logging.info(f"Image data length: {len(image_data)}")
 
-            # Determine the shape based on the filename or some criteria
-            if 'derivatives' in filename:  # for 3D formatted labels
-                original_shape = (224, 224, 26)
-            else:  # Assuming images are 4D
-                original_shape = (224, 224, 26, 1)
+                # Determine the shape based on the filename or some criteria
+                if 'derivatives' in filename:  # for 3D formatted labels
+                    original_shape = (224, 224, 26)
+                else:  # Assuming images are 4D
+                    original_shape = (224, 224, 26, 1)
 
-            # Reshape the numpy array
-            image_data = image_data.reshape(original_shape)
+                # Reshape the numpy array
+                image_data = image_data.reshape(original_shape)
 
-            # Retrieve the affine matrix from metadata
-            affine_matrix = np.array(grid_out.metadata['affine'])  # Convert list back to NumPy array
-            logging.info(f"Affine matrix loaded for {filename}")
+                # Retrieve the affine matrix from metadata
+                affine_matrix = np.array(grid_out.metadata['affine'])  # Convert list back to NumPy array
+                logging.info(f"Affine matrix loaded for {filename}")
 
-            logging.info(f"Loaded {filename} with shape {image_data.shape} and affine matrix.")
-            return image_data, affine_matrix # affine_matrix is provided just in case but is not needed for training and main purposes
+                logging.info(f"Loaded {filename} with shape {image_data.shape} and affine matrix.")
+                return image_data, affine_matrix  # affine_matrix is provided just in case but is not needed for training and main purposes
+            else:
+                logging.warning(f"File {filename} not found in MongoDB.")
+                return None, None
         except Exception as e:
-            logging.error(f"Error loading {filename} from MongoDB: {e}")
-    else:
-        logging.warning(f"File {filename} not found in MongoDB.")
-        return None
+            retries += 1
+            logging.warning(f"Error loading {filename} from MongoDB: {e}. Retrying {retries}/{max_retries}...")
+    logging.error(f"Failed to load {filename} after {max_retries} retries.")
+    return None, None
 
 # Retrieve and save NiFTi images
 def save_retrieved_nifti(filename, fs, output_dir):
