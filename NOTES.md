@@ -1,6 +1,9 @@
 More formal, organized documentation other than program comments. 
 
 # Personal Notes
+  - free disc space
+  - find way to successfully retrieve data without timeout errors
+  
   Goal: 20% testing data, 80% training data
   Current Focuses:
   - create function of model class to evaluate accuracy using files inside testview (annotated files for testing sample)
