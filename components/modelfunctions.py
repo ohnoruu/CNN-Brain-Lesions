@@ -1,9 +1,9 @@
 import numpy as np
 import nibabel as nib
 import tensorflow as tf
-from tensorflow.keras.utils import Sequence
-from tensorflow.keras.layers import Input, Conv3D, BatchNormalization, Activation, MaxPooling3D, GlobalAveragePooling3D, Dense
-from tensorflow.keras.models import Model
+from tensorflow.python.keras.utils import Sequence
+from tensorflow.python.keras.layers import Input, Conv3D, BatchNormalization, Activation, MaxPooling3D, GlobalAveragePooling3D, Dense
+from tensorflow.python.keras.models import Model
 import scipy.ndimage as ndi
 import logging
 

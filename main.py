@@ -1,9 +1,9 @@
 # imports
 import tensorflow as tf
-from tensorflow.keras.layers import Input, Conv3D, BatchNormalization, Activation, MaxPooling3D, GlobalAveragePooling3D, Dense 
-from tensorflow.keras.models import Model, load_model
-from tensorflow.keras.utils import Sequence
-from tensorflow.keras.callbacks import ModelCheckpoint
+from tensorflow.python.keras.layers import Input, Conv3D, BatchNormalization, Activation, MaxPooling3D, GlobalAveragePooling3D, Dense 
+from tensorflow.python.keras.models import Model, load_model
+from tensorflow.python.keras.utils import Sequence
+from tensorflow.python.keras.callbacks import ModelCheckpoint
 from pymongo import MongoClient
 import gridfs
 import re
