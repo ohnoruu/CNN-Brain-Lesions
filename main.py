@@ -16,24 +16,16 @@ import logging
 # import filenames to load from MongoDB
 from filenames import training_names, label_names, testing_names, testing_label_names
 # import components
-from components.mongofunctions import extract_subject_num, upload_nifti_files, retrieve_nifti
 from components.modelfunctions import DataGenerator, classification, visualization, save_nifti
-from credentials import MONGO_URI
 
 class LesionModel:
     def __init__(self, db_name='lesion_dataset', batch_size=32, epochs=10, checkpoint_dir='checkpoints', output_dir='testview'):
-        # MongoDB configuration
-        self.mongo_uri = MONGO_URI
-        self.db_name = db_name
-        self.client = MongoClient(
-            self.mongo_uri,
-            connectTimeoutMS=999999999,
-            socketTimeoutMS=999999999,   
-            serverSelectionTimeoutMS=999999999,
-            maxIdleTimeMS=999999999  
-        )
-        self.db = self.client[self.db_name]
-
+        # Local File directories
+        self.train_img_dir = 'tempdata\images'
+        self.train_labels_dir = 'tempdata\labels'
+        self.test_img_dir = r'tempdata\testingimages'
+        self.test_labels_dir = r'tempdata\testinglabels'
+        
         # GridFS instances for MongoDB data locations
         self.fs_training_images = gridfs.GridFS(self.db, collection='training_images')
         self.fs_labels = gridfs.GridFS(self.db, collection='labels')
@@ -55,53 +47,103 @@ class LesionModel:
         self.test_generator = None
         self.model = None
 
-    def load_data_in_batches(self, file_list, fs, is_label=False, batch_size=100):
-        """
-        Retrieve files from MongoDB in batches.
-        """
-        data = []
-        for i in range(0, len(file_list), batch_size):
-            batch = file_list[i:i + batch_size]  # Retrieve files in chunks
-            for name in batch:
-                data_item, _ = retrieve_nifti(name, fs)
-                if data_item is not None:
-                    data.append(data_item)
-                    logging.info(f"Appended {name} to {'labels' if is_label else 'training/testing data'}.")
+    def extract_identifier(self, filename, file_type='image'):
+        if file_type == 'image':
+             # Example: 'sub-1_dwi_sub-1_rec-TRACE_dwi.nii.gz'
+            parts = filename.split('_space-')[0].split('_rec-')[0]
+        elif file_type == 'label':
+            # Example: 'derivatives_lesion_masks_sub-1_dwi_sub-1_space-TRACE_desc-lesion_mask.nii.gz'
+            parts = filename.split('_space-')[0].replace('derivatives_lesion_masks_', '')
+        else:
+            parts = filename.split('_')[0]
+        return parts
+    
+    def load_training_data(self): # training img data
+        image_files = [f for f in os.listdir(self.train_img_dir)]
+        label_files = [f for f in os.listdir(self.train_labels_dir)]
 
-            logging.info(f"Processed batch {i//batch_size + 1}/{(len(file_list) + batch_size - 1)//batch_size}.")
-        
-        return data
+        if len(image_files) != len(label_files): # check if number of images and labels match, else stop operation
+            logging.error("Number of images and labels do not match. Verify using findmismatch.py.")
+            return
 
-    def load_training_data(self):
-        logging.info("Loading training data in batches.")
+        # Create a dictionary for quick lookup of labels
+        label_dict = {self.extract_identifier(f, file_type='label'): f for f in label_files}
 
-        # Load training images in batches
-        self.training_data = self.load_data_in_batches(training_names, self.fs_training_images, is_label=False)
-        logging.info(f"Retrieved {len(self.training_data)} training images.")
+        # Load and append data based on shared identifier
+        for img_file in image_files:
+            identifier =  self.extract_identifier(img_file, file_type='image')
+            label_file = label_dict.get(identifier)
 
-        # Load labels in batches
-        self.labels = self.load_data_in_batches(label_names, self.fs_labels, is_label=True)
-        logging.info(f"Retrieved {len(self.labels)} training labels.")
+            if label_file:
+                img_path = os.path.join(self.train_img_dir, img_file)
+                label_path = os.path.join(self.train_labels_dir, label_file)
+                
+                # Load NiFTi files
+                img_nii = nib.load(img_path)
+                label_nii = nib.load(label_path)
+                
+                img_data = img_nii.get_fdata()
+                label_data = label_nii.get_fdata()
+                
+                self.training_data.append(img_data)
+                self.labels.append(label_data)
+                
+                logging.info(f"Loaded {img_file} and {label_file}.")
+            else:
+                logging.warning(f"No label found for image {img_file}.")
+                return
 
-        # Initialize DataGenerator
-        self.train_generator = DataGenerator(self.training_data, self.labels, batch_size=self.batch_size, shuffle=True)
-        logging.info(f"Training data loaded with {len(self.training_data)} images and {len(self.labels)} labels.")
+        self.train_generator = DataGenerator(
+            self.training_data, 
+            self.labels, 
+            batch_size=self.batch_size, 
+            shuffle=True
+        )
+        logging.info("DataGenerator instance created with training data.")
 
-    def load_testing_data(self):
-        logging.info("Loading testing data in batches.")
+    def load_testing_data(self): # testign data used for evaluating accuracy
+        image_files = [f for f in os.listdir(self.test_img_dir)]
+        label_files = [f for f in os.listdir(self.test_labels_dir)]
 
-        # Load testing images in batches
-        self.testing_data = self.load_data_in_batches(testing_names, self.fs_testing_images, is_label=False)
-        logging.info(f"Retrieved {len(self.testing_data)} testing images.")
+        if len(image_files) != len(label_files): # check if number of images and labels match, else stop operation
+            logging.error("Number of images and labels do not match. Verify using findmismatch.py.")
+            return
 
-        # Load testing labels in batches
-        self.testing_labels = self.load_data_in_batches(testing_label_names, self.fs_testing_labels, is_label=True)
-        logging.info(f"Retrieved {len(self.testing_labels)} testing labels.")
+        # Create a dictionary for quick lookup of labels
+        label_dict = {self.extract_identifier(f, file_type='label'): f for f in label_files}
 
-        # Initialize DataGenerator for testing data
-        self.test_generator = DataGenerator(self.testing_data, self.testing_labels, batch_size=self.batch_size, shuffle=False)
-        logging.info(f"Testing data loaded with {len(self.testing_data)} images and {len(self.testing_labels)} labels.")
+        # Load and append data based on shared identifier
+        for img_file in image_files:
+            identifier =  self.extract_identifier(img_file, file_type='image')
+            label_file = label_dict.get(identifier)
 
+            if label_file:
+                img_path = os.path.join(self.train_img_dir, img_file)
+                label_path = os.path.join(self.train_labels_dir, label_file)
+                
+                # Load NiFTi files
+                img_nii = nib.load(img_path)
+                label_nii = nib.load(label_path)
+                
+                img_data = img_nii.get_fdata()
+                label_data = label_nii.get_fdata()
+                
+                self.training_data.append(img_data)
+                self.labels.append(label_data)
+                
+                logging.info(f"Loaded {img_file} and {label_file}.")
+            else:
+                logging.warning(f"No label found for image {img_file}.")
+                return
+            
+        self.test_generator = DataGenerator(
+            self.training_data, 
+            self.labels, 
+            batch_size=self.batch_size, 
+            shuffle=True
+        )
+        logging.info("DataGenerator instance created with testing data.")
+    
     def build_model(self):
         # get shape reference to provide as a parameter to the classification function. all images in dataset are already resized to the same shape
         shape_reference, _ = retrieve_nifti(training_names[0], self.fs_training_images)
@@ -167,8 +209,8 @@ class LesionModel:
 # Usage
 if __name__ == '__main__':
     model = LesionModel()
-    model.load_training_data()
-    model.load_testing_data()
+    #model.load_training_data()
+    #model.load_testing_data()
     model.build_model()
     model.train_model()
 
@@ -189,82 +231,3 @@ if __name__ == '__main__':
     output_path = 'output_file_location'
     nib.save(nib.Nifti1Image(highlighted_image, provided_nifti_image.affine), output_path)
     """
-
-"""
-OLD CODE:
-# TRAINING 
-# image_paths and labels were previously imported (see imports)
-batch_size = 32 # num of samples in each batch
-training_data = []
-labels = []
-
-for name in training_names:
-    image_data = retrieve_nifti(name, fs_training_images)
-    training_data.append(image_data)
-
-for name in label_names:
-    label_data = retrieve_nifti(name, fs_labels)
-    labels.append(label_data)
-
-train_generator = DataGenerator(training_data, labels, batch_size=batch_size, shuffle=True) # instance of DataGenerator class
-#loads, preprocesses images and corresponding labels, shuffles after each epoch. 
-
-shape_reference = retrieve_nifti(training_names[0]) # used to retrieve shape of image for training
-input_shape = shape_reference.get_fdata().shape
-# subject 2 (index 1) will be used as subject 1 has a different shape than usual
-image_shape = train_generator.get_nifti_shape(input_shape)
-model, feature_maps = classification(input_shape=image_shape) # creation of 3D ResNet model using input shape
-# the function 'classification' returns two values: the model and the feature maps (for later visualization task) in a tuple. Listing both model and feature_maps will unpack the tuple
-model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
-# model.compile is a built-in method of Keras and is important for training. This method configures the model for training.
-# optimizer - adam (adaptive moment estimation) - adjusts learning rate during training
-# loss - binary crossentropy - used for binary classification tasks
-# metrics - accuracy - used to evaluate the model's performance
-
-epochs = 10
-model.fit(train_generator, epochs=epochs) # initiate training
-# trains model using data generator for 10 epochs.
-# the first parameter of model.fit, x, is the input data. In this case, the input data is an instance of the class DataGenerator, which returns both labels and patient data as NumPy arrays.
-
-
-# SAVING MODEL AND TRAINING WEIGHTS
-checkpoint_directory = 'checkpoints'
-os.makedirs(checkpoint_directory, exist_ok=True)
-
-checkpoint_path = os.path.join(checkpoint_directory, 'model.h5')
-# specifies path where model checkpoints will be saved
-
-checkpoint_callback = ModelCheckpoint(
-    filepath=checkpoint_path,
-    monitor='val_accuracy', # monitor accuracy
-    mode='max', # refers to goal of maximizing accuracy
-    save_best_ony=True, # saves most accurate model
-    save_weights_only=True,
-    verbose=1 # specifies output (1 for print)
-)
-
-model.fit(
-    train_generator,
-    epochs=epochs,
-    callbacks=[checkpoint_callback]
-)
-
-# model.load_weights(checkpoint_path)
-
-
-# VISUALIZATION / TESTING   
-# Getting image shape and data:
-input_image_path = testing_paths[1] # path to image that will be used for evaluation
-provided_nifti_image = nib.load(input_image_path) # load in NIfTI image
-image_data = provided_nifti_image.get_fdata() # outputs as 3D NumPy array
-
-# Initiating visualization:
-threshold = 0.5
-highlighted_image = visualization(image_data, feature_maps, threshold)
-# feature_maps was obtained earlier from classification
-
-# SAVING VISUALIZATION AS NIFTI FILE
-output_path = 'output file location' # specify file path to save visualization
-save_nifti(highlighted_image, output_path, affine=provided_nifti_image.affine)
-# using the affine attribute of the original image ensures that the spatial orientation and transformation aligns correctly with the original image
-"""
