@@ -108,6 +108,7 @@ class LesionModel:
                 logging.warning(f"No label found for image {img_file}.")
                 return
 
+        # training instance of DataGenerator class
         self.train_generator = DataGenerator(
             self.training_images, 
             self.training_labels, 
@@ -151,6 +152,7 @@ class LesionModel:
                 logging.warning(f"No label found for image {img_file}.")
                 return
             
+        # testing instance of DataGenerator class
         self.test_generator = DataGenerator(
             self.testing_images, 
             self.testing_labels, 
@@ -174,7 +176,7 @@ class LesionModel:
             raise ValueError(error_message)
         
         # the shape of numpy arrays are the same as nifti, so no need to convert to nifti
-        self.model = segmentation(shape_reference)
+        self.model = segmentation(input_shape)
         self.model.compile(
             optimizer='adam',
             loss='binary_crossentropy', 
@@ -193,7 +195,7 @@ class LesionModel:
             mode='max', # refers to goal of maximizing accuracy
             save_best_only=True, # saves most accurate model
             save_weights_only=True,
-            verbose=1 # specifies output (1 for print)
+            verbose=1 # specifies output (1 for print, 0 for silent)
         )
 
         history = self.model.fit(

@@ -42,9 +42,9 @@ class DataGenerator(Sequence): # defines custom class that inherits from Keras S
         batch_labels = [self.labels[i] for i in indexes]
 
         #preprocess batch of images
-        preprocessed_images = [self.preprocess_image(img) for img in batch_images]
-        preprocessed_labels = [self.preprocess_label(label) for label in batch_labels]
-        # converts labels to binary masks for segmentation models using preprocess_labels function
+        preprocessed_images = [self.preprocess_image(img) for img in batch_images] # normalization 
+        preprocessed_labels = [self.preprocess_label(label) for label in batch_labels] # conversion to binary
+        # converts labels to binary masks for segmentation models using preprocess_labels function. Segmentation models prefer binary masks for labels when training.
         logging.info(f"Batch {index} loaded and preprocessed.")
         return np.array(preprocessed_images), np.array(preprocessed_labels) # returns batch of images and labels as numpy arrays
 
@@ -63,12 +63,6 @@ class DataGenerator(Sequence): # defines custom class that inherits from Keras S
         binary_label = (label_data > 0).astype(np.float64)
         logging.info("Completed preprocessing of label mask.")
         return binary_label
-    
-    def on_epoch_end(self):
-        if self.shuffle == True:
-            # if shuffle is true, NumPy will apply shuffle between epochs
-            logging.info("Shuffling data.")
-            np.random.shuffle(self.indexes)
             
     def preprocess_image(self, image_data):
         # check for division by zero
@@ -82,9 +76,15 @@ class DataGenerator(Sequence): # defines custom class that inherits from Keras S
             raise ValueError(error_message)
         
         # continue with normalization if valid
-        image_data = (image_data - min_val) / range_val
+        normalized_image = (image_data - min_val) / range_val
         logging.info("Completed preprocessing/normalization.")
-        return image_data
+        return normalized_image
+    
+    def on_epoch_end(self):
+        if self.shuffle == True:
+            # if shuffle is true, NumPy will apply shuffle between epochs
+            logging.info("Shuffling data.")
+            np.random.shuffle(self.indexes)
 
 def segmentation(input_shape):
     inputs = Input(shape=input_shape)
