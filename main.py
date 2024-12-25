@@ -1,9 +1,9 @@
 # imports
 import tensorflow as tf
-from tensorflow.python.keras.layers import Input, Conv3D, BatchNormalization, Activation, MaxPooling3D, GlobalAveragePooling3D, Dense 
-from tensorflow.python.keras.models import Model, load_model
-from tensorflow.python.keras.utils import Sequence
-from tensorflow.python.keras.callbacks import ModelCheckpoint
+from tensorflow.keras.layers import Input, Conv3D, BatchNormalization, Activation, MaxPooling3D, GlobalAveragePooling3D, Dense 
+from tensorflow.keras.models import Model, load_model
+from tensorflow.keras.utils import Sequence
+from tensorflow.keras.callbacks import ModelCheckpoint
 from pymongo import MongoClient
 import gridfs
 import re
@@ -46,7 +46,7 @@ class LesionModel:
         logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
         # Model parameters
-        self.batch_size = batch_size
+        self.batch_size = batch_size # batch_size is used for both loading the training data and 
         self.epochs = epochs
         self.checkpoint_dir = checkpoint_dir  # where checkpoint is saved
         self.output_dir = output_dir  # where visualizations are saved
@@ -60,7 +60,12 @@ class LesionModel:
         self.test_generator = None # stores instance of DataGenerator class for testing data (20%)
         self.model = None # stores instance of segmentation model (where model is constructed)
 
+    # LOADING DATA
+    # Since MongoDB requires paid plan for large data storage, local repository files are retrieved.
+    # Retrieval for smaller instances (ex: retrieving shape for segmentation and visualization) will still be done through MongoDB using the retrieve_nifti function in mongofunctions.py
+    
     def extract_identifier(self, filename, file_type='image'):
+        # uses split to extract identifier from filename (in this case, the subject number listed in the filename)
         if file_type == 'image':
              # Example: 'sub-1_dwi_sub-1_rec-TRACE_dwi.nii.gz'
             parts = filename.split('_space-')[0].split('_rec-')[0]
@@ -71,46 +76,64 @@ class LesionModel:
             parts = filename.split('_')[0]
         return parts
     
-    # LOADING DATA
-    # Since MongoDB requires paid plan for large data storage, local repository files are retrieved.
-    # Retrieval for smaller instances (ex: retrieving shape for segmentation and visualization) will still be done through MongoDB using the retrieve_nifti function in mongofunctions.py
-    def load_training_data(self): # training img data
-        image_files = [f for f in os.listdir(self.train_img_dir)]
-        label_files = [f for f in os.listdir(self.train_labels_dir)]
+    # the application crashes if too much data is loaded at once, so the data is loaded in batches
+    # chunks will later be loaded in batches when a DataGenerator instance is created. This should operate as normally as appending each image to a list
+    def load_data_in_chunks(self, image_dir, label_dir, chunk_size=100):
+        image_files = [f for f in os.listdir(image_dir)]
+        label_files = [f for f in os.listdir(label_dir)]
 
-        if len(image_files) != len(label_files): # check if number of images and labels match, else stop operation
-            logging.error("Number of images and labels do not match. Verify using findmismatch.py.")
-            return
-
-        # Create a dictionary for quick lookup of labels
         label_dict = {self.extract_identifier(f, file_type='label'): f for f in label_files}
+        failed_images = []
 
-        # Load and append data based on shared identifier
-        for img_file in image_files:
-            identifier =  self.extract_identifier(img_file, file_type='image')
-            label_file = label_dict.get(identifier)
+        for i in range(0, len(image_files), chunk_size):
+            chunk_images = []
+            chunk_labels = []
+            chunk_files = image_files[i:i + chunk_size]
 
-            if label_file:
-                img_path = os.path.join(self.train_img_dir, img_file)
-                label_path = os.path.join(self.train_labels_dir, label_file)
-                
-                # Load NiFTi files
-                img_nii = nib.load(img_path)
-                label_nii = nib.load(label_path)
-                
-                # convert both to numpy arrays
-                img_data = img_nii.get_fdata()
-                label_data = label_nii.get_fdata()
-                
-                self.training_images.append(img_data)
-                self.training_labels.append(label_data)
-                
-                logging.info(f"Loaded {img_file} and {label_file}.")
-            else:
-                logging.warning(f"No label found for image {img_file}.")
-                return
+            for img_file in chunk_files:
+                identifier = self.extract_identifier(img_file, file_type='image')
+                label_file = label_dict.get(identifier)
 
-        # training instance of DataGenerator class
+                if label_file:
+                    img_path = os.path.join(image_dir, img_file)
+                    label_path = os.path.join(label_dir, label_file)
+                    
+                    try:
+                        img_nii = nib.load(img_path)
+                        label_nii = nib.load(label_path)
+                    except Exception as e:
+                        logging.error(f"Error loading NiFTi files: {e}")
+                        failed_images.append(identifier)
+                        continue
+                    
+                    try:
+                        img_data = img_nii.get_fdata()
+                        label_data = label_nii.get_fdata()
+                    except Exception as e:
+                        logging.error(f"Error converting NiFTi files to numpy arrays: {e}")
+                        failed_images.append(identifier)
+                        continue
+                    
+                    chunk_images.append(img_data)
+                    chunk_labels.append(label_data)
+                    logging.info(f"Loaded {img_file} and {label_file}.")
+                else:
+                    logging.warning(f"No label found for image {img_file}.")
+                    failed_images.append(identifier)
+                    continue
+
+            yield chunk_images, chunk_labels, failed_images
+
+    def load_training_data(self):
+        logging.info("Loading training data.")
+        failed_images = []
+
+        for chunk_images, chunk_labels, chunk_failed_images in self.load_data_in_chunks(self.train_img_dir, self.train_labels_dir):
+            # extend is a version of append that works for iterable objects
+            self.training_images.extend(chunk_images)
+            self.training_labels.extend(chunk_labels)
+            failed_images.append(chunk_failed_images)
+
         self.train_generator = DataGenerator(
             self.training_images, 
             self.training_labels, 
@@ -119,50 +142,28 @@ class LesionModel:
         )
         logging.info("DataGenerator instance created with training data.")
 
-    def load_testing_data(self): # testign data used for evaluating accuracy
-        image_files = [f for f in os.listdir(self.test_img_dir)]
-        label_files = [f for f in os.listdir(self.test_labels_dir)]
+        if failed_images:
+            logging.warning(f"Failed to load images: {failed_images}")
 
-        if len(image_files) != len(label_files): # check if number of images and labels match, else stop operation
-            logging.error("Number of images and labels do not match. Verify using findmismatch.py.")
-            return
+    def load_testing_data(self):
+        logging.info("Loading testing data.")
+        failed_images = []
 
-        # Create a dictionary for quick lookup of labels
-        label_dict = {self.extract_identifier(f, file_type='label'): f for f in label_files}
+        for chunk_images, chunk_labels, chunk_failed_images in self.load_data_in_chunks(self.test_img_dir, self.test_labels_dir):
+            self.testing_images.extend(chunk_images)
+            self.testing_labels.extend(chunk_labels)
+            failed_images.append(chunk_failed_images)
 
-        # Load and append data based on shared identifier
-        for img_file in image_files:
-            identifier =  self.extract_identifier(img_file, file_type='image')
-            label_file = label_dict.get(identifier)
-
-            if label_file:
-                img_path = os.path.join(self.test_img_dir, img_file)
-                label_path = os.path.join(self.test_labels_dir, label_file)
-                
-                # Load NiFTi files
-                img_nii = nib.load(img_path)
-                label_nii = nib.load(label_path)
-                
-                # convert both to numpy arrays
-                img_data = img_nii.get_fdata()
-                label_data = label_nii.get_fdata()
-                
-                self.testing_images.append(img_data)
-                self.testing_labels.append(label_data)
-                
-                logging.info(f"Loaded {img_file} and {label_file}.")
-            else:
-                logging.warning(f"No label found for image {img_file}.")
-                return
-            
-        # testing instance of DataGenerator class
         self.test_generator = DataGenerator(
             self.testing_images, 
             self.testing_labels, 
             batch_size=self.batch_size, 
-            shuffle=False # no shuffle needed for testing
+            shuffle=False
         )
         logging.info("DataGenerator instance created with testing data.")
+
+        if failed_images:
+            logging.warning(f"Failed to load images: {failed_images}")
     
     def build_model(self):
         # get shape reference to provide as a parameter to the segmentation function. all images in dataset are already resized to the same shape
