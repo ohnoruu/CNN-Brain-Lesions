@@ -97,6 +97,7 @@ class LesionModel:
                 img_nii = nib.load(img_path)
                 label_nii = nib.load(label_path)
                 
+                # convert both to numpy arrays
                 img_data = img_nii.get_fdata()
                 label_data = label_nii.get_fdata()
                 
@@ -141,6 +142,7 @@ class LesionModel:
                 img_nii = nib.load(img_path)
                 label_nii = nib.load(label_path)
                 
+                # convert both to numpy arrays
                 img_data = img_nii.get_fdata()
                 label_data = label_nii.get_fdata()
                 
@@ -178,8 +180,8 @@ class LesionModel:
         # the shape of numpy arrays are the same as nifti, so no need to convert to nifti
         self.model = segmentation(input_shape)
         self.model.compile(
-            optimizer='adam',
-            loss='binary_crossentropy', 
+            optimizer='adam', # adaptive learning rate optimization algorithm combining AdaGrad and RMSProp
+            loss='binary_crossentropy',  # returns image mask (ex: 1 for lesion, 0 for non-lesion). Subject to change 
             metrics=['accuracy', dice_coefficient] # dice coefficient is used to evaluate segmentation models
         )
         logging.info("Model built and compiled.")

@@ -119,6 +119,11 @@ def dice_coefficient(y_true, y_pred, smooth=1):
     """
     Calculates the Dice Coefficient.
 
+    evaluates similarity betweeen model predictions and ground truth (labels)
+    1. intersection: number of overlapping pixels between the predicted mask and the ground truth mask
+    2. union: total number of pixels in both masks
+    3. dice coefficient: 2 * intersection / union
+    
     Parameters:
     - y_true: tensor, ground truth masks.
     - y_pred: tensor, predicted masks.
