@@ -117,6 +117,7 @@ def retrieve_nifti(filename, fs, max_retries=50):
 
                 logging.info(f"Loaded {filename} with shape {image_data.shape} and affine matrix.")
                 return image_data, affine_matrix  # affine_matrix is provided just in case but is not needed for training and main purposes
+                # affine matrix used when converting back to NiFTi format
             else:
                 logging.warning(f"File {filename} not found in MongoDB.")
                 return None, None

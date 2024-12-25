@@ -1,5 +1,6 @@
 import os
 import re
+import nibabel as nib
 
 def get_file_subjects(folder_path):
     """
@@ -16,6 +17,13 @@ def get_file_subjects(folder_path):
         else:
             print(f"Error retrieving subject number from {file_name}")
     return file_subjects
+
+def print_nifti_file_sizes(directory):
+    files = os.listdir(directory)
+    for file in files:
+        file_path = os.path.join(directory, file)
+        img = nib.load(file_path)
+        print(f"File: {file}, Size: {img.shape}")
 
 def find_mismatched_files(folder1, folder2):
     folder1_files = get_file_subjects(folder1)
@@ -40,7 +48,7 @@ def find_mismatched_files(folder1, folder2):
 
     return mismatched_files, extra_files_folder1, extra_files_folder2
 
-# Example usage
+# Finding Mismatch
 folder1 = r'tempdata\testingimages'
 folder2 = r'tempdata\testinglabels'
 
@@ -57,3 +65,13 @@ for file in extra_files_folder1:
 print("\nExtra files in folder2:")
 for file in extra_files_folder2:
     print(file)
+
+# Checked 12/24/2024 no mismatched files found
+
+# Size Check
+#print_nifti_file_sizes('tempdata/images')
+#print_nifti_file_sizes('tempdata/labels')
+#print_nifti_file_sizes(folder1)
+#print_nifti_file_sizes(folder2)
+
+# Checked 12/24/2024 Images (224,224,26,1) and labels (224,224,26) have the same size 
