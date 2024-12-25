@@ -13,6 +13,7 @@ import nibabel as nib
 import scipy.ndimage as ndi
 import logging
 import math
+import matplotlib.pyplot as plt
 
 # import filenames to load from MongoDB
 from filenames import training_names, label_names, testing_names, testing_label_names
@@ -165,20 +166,9 @@ class LesionModel:
     
     def build_model(self):
         # get shape reference to provide as a parameter to the segmentation function. all images in dataset are already resized to the same shape
-        shape_reference, _ = retrieve_nifti(training_names[0], self.fs_training_images)
-    
-        # Check and append channel dimension if missing
-        if len(shape_reference) == 3:
-            input_shape = shape_reference + (1,)  # Add channel dimension for grayscale
-        elif len(shape_reference) == 4:
-            input_shape = shape_reference  # Assume channels are already included
-        else:
-            error_message = f"Unsupported input shape: {shape_reference}"
-            logging.error(error_message)
-            raise ValueError(error_message)
-        
+        shape_reference, _ = retrieve_nifti(training_names[0], self.fs_training_images) # verified to have size of (224,224,26,1)
         # the shape of numpy arrays are the same as nifti, so no need to convert to nifti
-        self.model = segmentation(input_shape)
+        self.model = segmentation(shape_reference)
         self.model.compile(
             optimizer='adam', # adaptive learning rate optimization algorithm combining AdaGrad and RMSProp
             loss='binary_crossentropy',  # returns image mask (ex: 1 for lesion, 0 for non-lesion). Subject to change 
