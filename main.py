@@ -14,6 +14,7 @@ import scipy.ndimage as ndi
 import logging
 import math
 import matplotlib.pyplot as plt
+import time
 
 # import filenames to load from MongoDB
 from filenames import training_names, label_names, testing_names, testing_label_names
@@ -78,7 +79,7 @@ class LesionModel:
     
     # the application crashes if too much data is loaded at once, so the data is loaded in batches
     # chunks will later be loaded in batches when a DataGenerator instance is created. This should operate as normally as appending each image to a list
-    def load_data_in_chunks(self, image_dir, label_dir, chunk_size=100):
+    def load_data_in_chunks(self, image_dir, label_dir, chunk_size=100, wait_time=1, max_retries=3):
         image_files = [f for f in os.listdir(image_dir)]
         label_files = [f for f in os.listdir(label_dir)]
 
@@ -106,14 +107,21 @@ class LesionModel:
                         failed_images.append(identifier)
                         continue
                     
-                    try:
-                        img_data = img_nii.get_fdata()
-                        label_data = label_nii.get_fdata()
-                    except Exception as e:
-                        logging.error(f"Error converting NiFTi files to numpy arrays: {e}")
-                        failed_images.append(identifier)
-                        continue
-                    
+                    retries = 0
+                    while retries < max_retries:
+                        try:
+                            img_data = img_nii.get_fdata()
+                            label_data = label_nii.get_fdata()
+                            break # break out of loop if successful
+                        except Exception as e:
+                            retries += 1
+                            logging.error(f"Error converting NiFTi files to numpy arrays: {e}")
+                            if retries == max_retries:
+                                logging.error(f"Max retries reached. Failed to convert NiFTi files to numpy arrays.")
+                                failed_images.append(identifier)
+                                break
+                    if retries == max_retries:
+                        continue # skips to next file of numpy conversion fails.
                     chunk_images.append(img_data)
                     chunk_labels.append(label_data)
                     logging.info(f"Loaded {img_file} and {label_file}.")
@@ -123,6 +131,8 @@ class LesionModel:
                     continue
 
             yield chunk_images, chunk_labels, failed_images
+
+            time.sleep(1) # sleep for 1 second to prevent application from being overwhelmed
 
     def load_training_data(self):
         logging.info("Loading training data.")
