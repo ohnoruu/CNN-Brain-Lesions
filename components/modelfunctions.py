@@ -16,81 +16,63 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # epoch - one complete pass through the ENTIRE training dataset during the training of the model
 # batch: portion of an epoch
 # during one epoch, the model will see each training model once and will update its parameters based on the observed data
-class DataGenerator(Sequence): # defines custom class that inherits from Keras Sequence class. 
+class DataGenerator(Sequence):
     def __init__(self, image_dir, label_dir, batch_size=32, shuffle=True):
         self.image_dir = image_dir
         self.label_dir = label_dir
-        self.batch_size = batch_size 
+        self.batch_size = batch_size
         self.shuffle = shuffle
         self.images = [f for f in os.listdir(image_dir)]
         self.labels = [f for f in os.listdir(label_dir)]
-        self.indexes = np.arange(len(self.images)) 
+        self.indexes = np.arange(len(self.images))
         self.on_epoch_end()
         logging.info(f"DataGenerator initialized with {len(self.images)} images and {len(self.labels)} labels.")
 
     def __len__(self):
-        # returns number of batches per epoch 
         num_batches = math.ceil(len(self.images) / self.batch_size)
         logging.info(f"Number of batches per epoch: {num_batches}")
         return num_batches
 
     def __getitem__(self, index):
-        # generates one batch of data
-        indexes = self.indexes[index*self.batch_size:(index+1)*self.batch_size]
-        # calculates indexes of the data samples to include in current batch 
-        batch_images = [self.image_files[i] for i in indexes]
-        batch_labels = [self._get_label_file[img] for img in batch_images]
+        indexes = self.indexes[index * self.batch_size:(index + 1) * self.batch_size]
+        batch_images = [self.images[i] for i in indexes]
+        batch_labels = [self._get_label_file(img) for img in batch_images]
 
-        #preprocess batch of images
-        # NiFTi images are retrieved as input, so they are converted into numpy arrays to be valid for preprocessing
         preprocessed_images = [self.preprocess_image(nib.load(os.path.join(self.image_dir, img)).get_fdata()) for img in batch_images]
         preprocessed_labels = [self.preprocess_label(nib.load(os.path.join(self.label_dir, lbl)).get_fdata()) for lbl in batch_labels]
-        # converts labels to binary masks for segmentation models using preprocess_labels function. Segmentation models prefer binary masks for labels when training.
+
         logging.info(f"Batch {index} loaded and preprocessed.")
-        return np.array(preprocessed_images), np.array(preprocessed_labels) # returns batch of images and labels as numpy arrays
+        return np.array(preprocessed_images), np.array(preprocessed_labels)
 
     def _get_label_file(self, image_file):
         identifier = self.extract_identifier(image_file, file_type='image')
-        try:
-            for label_file in self.label_files:
-                if identifier in self.extract_indentifier(label_file, file_type='label'):
-                    logging.info(f"Label file {label_file} found for {image_file}.")
-                    return label_file
-        except:
-            error_message = f"Label file not found for {image_file}."
-            logging.error(error_message)
-            raise ValueError(error_message)
-    
+        logging.debug(f"Extracted identifier for image file {image_file}: {identifier}")
+        for label_file in self.labels:
+            if identifier in self.extract_identifier(label_file, file_type='label'):
+                logging.info(f"Label file {label_file} found for {image_file}.")
+                return label_file
+        error_message = f"Label file not found for {image_file}."
+        logging.error(error_message)
+        raise ValueError(error_message)
+
     def extract_identifier(self, filename, file_type='image'):
-        # uses split to extract identifier from filename (in this case, the subject number listed in the filename)
         if file_type == 'image':
-             # Example: 'sub-1_dwi_sub-1_rec-TRACE_dwi.nii.gz'
-            parts = filename.split('_space-')[0].split('_rec-')[0]
+            parts = filename.split('_dwi_')[0]  # Extract up to '_dwi_'
         elif file_type == 'label':
-            # Example: 'derivatives_lesion_masks_sub-1_dwi_sub-1_space-TRACE_desc-lesion_mask.nii.gz'
-            parts = filename.split('_space-')[0].replace('derivatives_lesion_masks_', '')
+            parts = filename.split('_space-')[0].replace('derivatives_lesion_masks_', '')  # Extract up to '_space-' and remove prefix
         else:
             parts = filename.split('_')[0]
+        logging.debug(f"Extracted parts for {file_type} file {filename}: {parts}")
         return parts
-    
+
     def preprocess_label(self, label_data):
-        """
-        Preprocesses the label mask for segmentation.
-        For segmentation models, labels are binarized. 
-
-        Parameters:
-        - label_data: np.ndarray, raw label mask.
-
-        Returns:
-        - binary_label: np.ndarray, binary mask.
-        """
-        # Binarize the label mask
+        label_data = np.resize(label_data, (224, 224, 26))
         binary_label = (label_data > 0).astype(np.float64)
         logging.info("Completed preprocessing of label mask.")
         return binary_label
-            
+
     def preprocess_image(self, image_data):
-        # check for division by zero
+        image_data = np.resize(image_data, (224, 224, 26, 1))
         min_val = np.min(image_data)
         max_val = np.max(image_data)
         range_val = max_val - min_val
@@ -99,15 +81,13 @@ class DataGenerator(Sequence): # defines custom class that inherits from Keras S
             error_message = "Preprocessing failed: Image has zero variance, leading to division by zero."
             logging.error(error_message)
             raise ValueError(error_message)
-        
-        # continue with normalization if valid
+
         normalized_image = (image_data - min_val) / range_val
         logging.info("Completed preprocessing/normalization.")
         return normalized_image
-    
+
     def on_epoch_end(self):
-        if self.shuffle == True:
-            # if shuffle is true, NumPy will apply shuffle between epochs
+        if self.shuffle:
             logging.info("Shuffling data.")
             np.random.shuffle(self.indexes)
 
@@ -115,27 +95,37 @@ def segmentation(input_shape):
     inputs = Input(shape=input_shape)
 
     # Encoder
-    x = Conv3D(32, kernel_size=(3,3,3), padding='same')(inputs)
+    x = Conv3D(32, kernel_size=(3, 3, 3), padding='same')(inputs)
     x = BatchNormalization()(x)
     x = Activation('relu')(x)
-    x = MaxPooling3D(pool_size=(2,2,2))(x)
+    x = MaxPooling3D(pool_size=(2, 2, 2))(x)  # Reduces spatial dimensions by half
 
-    x = Conv3D(64, kernel_size=(3,3,3), padding='same')(x)
+    x = Conv3D(64, kernel_size=(3, 3, 3), padding='same')(x)
     x = BatchNormalization()(x)
     x = Activation('relu')(x)
-    x = MaxPooling3D(pool_size=(2,2,2))(x)
+    x = MaxPooling3D(pool_size=(2, 2, 2))(x)  # Reduces spatial dimensions by half again
+
+    x = Conv3D(128, kernel_size=(3, 3, 3), padding='same')(x)
+    x = BatchNormalization()(x)
+    x = Activation('relu')(x)
 
     # Decoder
-    x = Conv3DTranspose(64, kernel_size=(3,3,3), strides=(2,2,2), padding='same')(x)
+    x = Conv3DTranspose(64, kernel_size=(3, 3, 3), strides=(2, 2, 2), padding='same')(x)  # Doubles spatial dimensions
     x = BatchNormalization()(x)
     x = Activation('relu')(x)
 
-    x = Conv3DTranspose(32, kernel_size=(3,3,3), strides=(2,2,2), padding='same')(x)
+    x = Conv3DTranspose(32, kernel_size=(3, 3, 3), strides=(2, 2, 2), padding='same')(x)  # Doubles spatial dimensions again
     x = BatchNormalization()(x)
     x = Activation('relu')(x)
 
-    # Output Layer for Segmentation
-    outputs = Conv3D(1, kernel_size=(1,1,1), activation='sigmoid', padding='same')(x)
+    # Additional Conv3DTranspose layer to match depth dimension
+    x = Conv3DTranspose(32, kernel_size=(3, 3, 3), strides=(1, 1, 2), padding='same')(x)  # Adjust depth dimension
+
+    # Final Conv3DTranspose layer to match the exact depth dimension
+    x = Conv3DTranspose(32, kernel_size=(3, 3, 3), strides=(1, 1, 2), padding='same')(x)  # Further adjust depth dimension
+
+    # Ensure the output has the same number of channels as the target
+    outputs = Conv3D(1, kernel_size=(1, 1, 1), activation='sigmoid', padding='same')(x)  # Single channel output
 
     model = Model(inputs=inputs, outputs=outputs)
     return model

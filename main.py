@@ -172,7 +172,7 @@ class LesionModel:
     def train_model(self):
         # create checkpoint directory to save training weights
         os.makedirs(self.checkpoint_dir, exist_ok=True)
-        checkpoint_path = os.path.join(self.checkpoint_dir, 'model.h5')
+        checkpoint_path = os.path.join(self.checkpoint_dir, 'model.weights.h5')
 
         checkpoint_callback = ModelCheckpoint(
             filepath=checkpoint_path,
@@ -200,7 +200,7 @@ class LesionModel:
 
     def visualize_results(self, image_name, threshold=0.5): # used for visualizing single nifti images (not specific to the ones in the dataset)
         os.makedirs(self.output_dir, exist_ok=True) # ensure output directory exists
-        self.model.load_weights(os.path.join(self.checkpoint_dir, 'model.h5'))
+        self.model.load_weights(os.path.join(self.checkpoint_dir, 'model.weights.h5'))
 
         image_data, affine = retrieve_nifti(image_name, self.fs_testing_images)
 
