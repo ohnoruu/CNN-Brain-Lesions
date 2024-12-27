@@ -17,13 +17,13 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # batch: portion of an epoch
 # during one epoch, the model will see each training model once and will update its parameters based on the observed data
 class DataGenerator(Sequence): # defines custom class that inherits from Keras Sequence class. 
-    def __init__(self, images, labels, batch_size=32, shuffle=True):
-        if (len(images) != len(labels)):
-            raise ValueError("Number of images and labels must be equal.")
-        self.images = images 
-        self.labels = labels 
+    def __init__(self, image_dir, label_dir, batch_size=32, shuffle=True):
+        self.image_dir = image_dir
+        self.label_dir = label_dir
         self.batch_size = batch_size 
         self.shuffle = shuffle
+        self.images = [f for f in os.listdir(image_dir)]
+        self.labels = [f for f in os.listdir(label_dir)]
         self.indexes = np.arange(len(self.images)) 
         self.on_epoch_end()
         logging.info(f"DataGenerator initialized with {len(self.images)} images and {len(self.labels)} labels.")
@@ -38,16 +38,41 @@ class DataGenerator(Sequence): # defines custom class that inherits from Keras S
         # generates one batch of data
         indexes = self.indexes[index*self.batch_size:(index+1)*self.batch_size]
         # calculates indexes of the data samples to include in current batch 
-        batch_images = [self.images[i] for i in indexes]
-        batch_labels = [self.labels[i] for i in indexes]
+        batch_images = [self.image_files[i] for i in indexes]
+        batch_labels = [self._get_label_file[img] for img in batch_images]
 
         #preprocess batch of images
-        preprocessed_images = [self.preprocess_image(img) for img in batch_images] # normalization 
-        preprocessed_labels = [self.preprocess_label(label) for label in batch_labels] # conversion to binary
+        # NiFTi images are retrieved as input, so they are converted into numpy arrays to be valid for preprocessing
+        preprocessed_images = [self.preprocess_image(nib.load(os.path.join(self.image_dir, img)).get_fdata()) for img in batch_images]
+        preprocessed_labels = [self.preprocess_label(nib.load(os.path.join(self.label_dir, lbl)).get_fdata()) for lbl in batch_labels]
         # converts labels to binary masks for segmentation models using preprocess_labels function. Segmentation models prefer binary masks for labels when training.
         logging.info(f"Batch {index} loaded and preprocessed.")
         return np.array(preprocessed_images), np.array(preprocessed_labels) # returns batch of images and labels as numpy arrays
 
+    def _get_label_file(self, image_file):
+        identifier = self.extract_identifier(image_file, file_type='image')
+        try:
+            for label_file in self.label_files:
+                if identifier in self.extract_indentifier(label_file, file_type='label'):
+                    logging.info(f"Label file {label_file} found for {image_file}.")
+                    return label_file
+        except:
+            error_message = f"Label file not found for {image_file}."
+            logging.error(error_message)
+            raise ValueError(error_message)
+    
+    def extract_identifier(self, filename, file_type='image'):
+        # uses split to extract identifier from filename (in this case, the subject number listed in the filename)
+        if file_type == 'image':
+             # Example: 'sub-1_dwi_sub-1_rec-TRACE_dwi.nii.gz'
+            parts = filename.split('_space-')[0].split('_rec-')[0]
+        elif file_type == 'label':
+            # Example: 'derivatives_lesion_masks_sub-1_dwi_sub-1_space-TRACE_desc-lesion_mask.nii.gz'
+            parts = filename.split('_space-')[0].replace('derivatives_lesion_masks_', '')
+        else:
+            parts = filename.split('_')[0]
+        return parts
+    
     def preprocess_label(self, label_data):
         """
         Preprocesses the label mask for segmentation.

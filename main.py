@@ -65,6 +65,7 @@ class LesionModel:
     # Since MongoDB requires paid plan for large data storage, local repository files are retrieved.
     # Retrieval for smaller instances (ex: retrieving shape for segmentation and visualization) will still be done through MongoDB using the retrieve_nifti function in mongofunctions.py
     
+    """
     def extract_identifier(self, filename, file_type='image'):
         # uses split to extract identifier from filename (in this case, the subject number listed in the filename)
         if file_type == 'image':
@@ -76,7 +77,8 @@ class LesionModel:
         else:
             parts = filename.split('_')[0]
         return parts
-    
+    """
+    """
     # the application crashes if too much data is loaded at once, so the data is loaded in batches
     # chunks will later be loaded in batches when a DataGenerator instance is created. This should operate as normally as appending each image to a list
     def load_data_in_chunks(self, image_dir, label_dir, chunk_size=100, wait_time=1, max_retries=3):
@@ -133,53 +135,33 @@ class LesionModel:
             yield chunk_images, chunk_labels, failed_images
 
             time.sleep(1) # sleep for 1 second to prevent application from being overwhelmed
+    """
 
     def load_training_data(self):
         logging.info("Loading training data.")
-        failed_images = []
-
-        for chunk_images, chunk_labels, chunk_failed_images in self.load_data_in_chunks(self.train_img_dir, self.train_labels_dir):
-            # extend is a version of append that works for iterable objects
-            self.training_images.extend(chunk_images)
-            self.training_labels.extend(chunk_labels)
-            failed_images.append(chunk_failed_images)
-
         self.train_generator = DataGenerator(
-            self.training_images, 
-            self.training_labels, 
+            self.train_img_dir, 
+            self.train_labels_dir, 
             batch_size=self.batch_size, 
             shuffle=True
         )
         logging.info("DataGenerator instance created with training data.")
 
-        if failed_images:
-            logging.warning(f"Failed to load images: {failed_images}")
-
     def load_testing_data(self):
         logging.info("Loading testing data.")
-        failed_images = []
-
-        for chunk_images, chunk_labels, chunk_failed_images in self.load_data_in_chunks(self.test_img_dir, self.test_labels_dir):
-            self.testing_images.extend(chunk_images)
-            self.testing_labels.extend(chunk_labels)
-            failed_images.append(chunk_failed_images)
-
         self.test_generator = DataGenerator(
-            self.testing_images, 
-            self.testing_labels, 
+            self.test_img_dir, 
+            self.test_labels_dir, 
             batch_size=self.batch_size, 
             shuffle=False
         )
         logging.info("DataGenerator instance created with testing data.")
-
-        if failed_images:
-            logging.warning(f"Failed to load images: {failed_images}")
     
     def build_model(self):
-        # get shape reference to provide as a parameter to the segmentation function. all images in dataset are already resized to the same shape
-        shape_reference, _ = retrieve_nifti(training_names[0], self.fs_training_images) # verified to have size of (224,224,26,1)
-        # the shape of numpy arrays are the same as nifti, so no need to convert to nifti
+        sample_image_path = os.path.join(self.train_img_dir, training_names[0])
+        shape_reference = nib.load(sample_image_path).get_fdata().shape
         self.model = segmentation(shape_reference)
+
         self.model.compile(
             optimizer='adam', # adaptive learning rate optimization algorithm combining AdaGrad and RMSProp
             loss='binary_crossentropy',  # returns image mask (ex: 1 for lesion, 0 for non-lesion). Subject to change 
