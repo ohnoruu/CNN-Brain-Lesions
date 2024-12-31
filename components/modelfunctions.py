@@ -17,11 +17,12 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # batch: portion of an epoch
 # during one epoch, the model will see each training model once and will update its parameters based on the observed data
 class DataGenerator(Sequence):
-    def __init__(self, image_dir, label_dir, batch_size=4, shuffle=True):
+    def __init__(self, image_dir, label_dir, batch_size=4, shuffle=True, augment=False):
         self.image_dir = image_dir
         self.label_dir = label_dir
         self.batch_size = batch_size
         self.shuffle = shuffle
+        self.augment = augment # should be set to true for training and false for testing/validation
         self.images = [f for f in os.listdir(image_dir)]
         self.labels = [f for f in os.listdir(label_dir)]
         self.indexes = np.arange(len(self.images))
@@ -40,6 +41,10 @@ class DataGenerator(Sequence):
 
         preprocessed_images = [self.preprocess_image(nib.load(os.path.join(self.image_dir, img)).get_fdata()) for img in batch_images]
         preprocessed_labels = [self.preprocess_label(nib.load(os.path.join(self.label_dir, lbl)).get_fdata()) for lbl in batch_labels]
+
+        if self.augment:
+            logging.info("Augmenting images.")
+            preprocessed_images = [self.augment_image(image) for image in preprocessed_images]
 
         logging.info(f"Batch {index} loaded and preprocessed.")
         return np.array(preprocessed_images), np.array(preprocessed_labels)
@@ -85,7 +90,12 @@ class DataGenerator(Sequence):
         normalized_image = (image_data - min_val) / range_val
         logging.info("Completed preprocessing/normalization.")
         return normalized_image
-
+    
+    def augment_image(self, image):
+        # apply random rotation for training
+        image = tf.keras.layers.RandomRotation(factor=0.1, fill_mode='nearest', interpolation='bilinear')(image) # takes in numpy arrays of float32
+        return image
+    
     def on_epoch_end(self):
         if self.shuffle:
             logging.info("Shuffling data.")

@@ -1,5 +1,5 @@
 tensorflow
-keras
+nibabel
 numpy
-scikit-image
+scipy
 matplotlib

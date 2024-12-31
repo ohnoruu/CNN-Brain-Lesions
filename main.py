@@ -77,78 +77,6 @@ class LesionModel:
     # LOADING DATA
     # Since MongoDB requires paid plan for large data storage, local repository files are retrieved.
     # Retrieval for smaller instances (ex: retrieving shape for segmentation and visualization) will still be done through MongoDB using the retrieve_nifti function in mongofunctions.py
-    
-    """
-    def extract_identifier(self, filename, file_type='image'):
-        # uses split to extract identifier from filename (in this case, the subject number listed in the filename)
-        if file_type == 'image':
-             # Example: 'sub-1_dwi_sub-1_rec-TRACE_dwi.nii.gz'
-            parts = filename.split('_space-')[0].split('_rec-')[0]
-        elif file_type == 'label':
-            # Example: 'derivatives_lesion_masks_sub-1_dwi_sub-1_space-TRACE_desc-lesion_mask.nii.gz'
-            parts = filename.split('_space-')[0].replace('derivatives_lesion_masks_', '')
-        else:
-            parts = filename.split('_')[0]
-        return parts
-    """
-    """
-    # the application crashes if too much data is loaded at once, so the data is loaded in batches
-    # chunks will later be loaded in batches when a DataGenerator instance is created. This should operate as normally as appending each image to a list
-    def load_data_in_chunks(self, image_dir, label_dir, chunk_size=100, wait_time=1, max_retries=3):
-        image_files = [f for f in os.listdir(image_dir)]
-        label_files = [f for f in os.listdir(label_dir)]
-
-        label_dict = {self.extract_identifier(f, file_type='label'): f for f in label_files}
-        failed_images = []
-
-        for i in range(0, len(image_files), chunk_size):
-            chunk_images = []
-            chunk_labels = []
-            chunk_files = image_files[i:i + chunk_size]
-
-            for img_file in chunk_files:
-                identifier = self.extract_identifier(img_file, file_type='image')
-                label_file = label_dict.get(identifier)
-
-                if label_file:
-                    img_path = os.path.join(image_dir, img_file)
-                    label_path = os.path.join(label_dir, label_file)
-                    
-                    try:
-                        img_nii = nib.load(img_path)
-                        label_nii = nib.load(label_path)
-                    except Exception as e:
-                        logging.error(f"Error loading NiFTi files: {e}")
-                        failed_images.append(identifier)
-                        continue
-                    
-                    retries = 0
-                    while retries < max_retries:
-                        try:
-                            img_data = img_nii.get_fdata()
-                            label_data = label_nii.get_fdata()
-                            break # break out of loop if successful
-                        except Exception as e:
-                            retries += 1
-                            logging.error(f"Error converting NiFTi files to numpy arrays: {e}")
-                            if retries == max_retries:
-                                logging.error(f"Max retries reached. Failed to convert NiFTi files to numpy arrays.")
-                                failed_images.append(identifier)
-                                break
-                    if retries == max_retries:
-                        continue # skips to next file of numpy conversion fails.
-                    chunk_images.append(img_data)
-                    chunk_labels.append(label_data)
-                    logging.info(f"Loaded {img_file} and {label_file}.")
-                else:
-                    logging.warning(f"No label found for image {img_file}.")
-                    failed_images.append(identifier)
-                    continue
-
-            yield chunk_images, chunk_labels, failed_images
-
-            time.sleep(1) # sleep for 1 second to prevent application from being overwhelmed
-    """
 
     def load_training_data(self):
         logging.info("Loading training data.")
@@ -156,7 +84,8 @@ class LesionModel:
             self.train_img_dir, 
             self.train_labels_dir, 
             batch_size=self.batch_size, 
-            shuffle=True
+            shuffle=True,
+            augment=True
         )
         logging.info("DataGenerator instance created with training data.")
 
@@ -166,7 +95,8 @@ class LesionModel:
             self.test_img_dir, 
             self.test_labels_dir, 
             batch_size=self.batch_size, 
-            shuffle=False
+            shuffle=False,
+            augment=False
         )
         logging.info("DataGenerator instance created with testing data.")
     
