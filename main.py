@@ -1,6 +1,8 @@
 # imports
+import os
+os.environ['TF_GPU_ALLOCATOR'] = 'cuda_malloc_async'
 import tensorflow as tf
-from tensorflow.keras.layers import Input, Conv3D, BatchNormalization, Activation, MaxPooling3D, GlobalAveragePooling3D, Dense 
+from tensorflow.keras.layers import Input, Conv3D, BatchNormalization, Activation, MaxPooling3D, GlobalAveragePooling3D, Dense, Conv3DTranspose, ZeroPadding3D
 from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.utils import Sequence
 from tensorflow.keras.callbacks import ModelCheckpoint
@@ -8,7 +10,6 @@ from pymongo import MongoClient
 import gridfs
 import re
 import numpy as np
-import os 
 import nibabel as nib
 import scipy.ndimage as ndi
 import logging
@@ -24,7 +25,19 @@ from components.mongofunctions import retrieve_nifti
 from credentials import MONGO_URI
 
 class LesionModel:
-    def __init__(self, db_name='lesion_dataset', batch_size=32, epochs=10, checkpoint_dir='checkpoints', output_dir='testview'):
+    def __init__(self, db_name='lesion_dataset', batch_size=4, epochs=10, checkpoint_dir='checkpoints', output_dir='testview'):
+        # GPU configuration to prevent memory errors
+        # Allows TF to allocate GPU memory as needed
+        gpus = tf.config.experimental.list_physical_devices('GPU')
+        if gpus:
+            try:
+                for gpu in gpus:
+                    tf.config.experimental.set_memory_growth(gpu, True)
+                logical_gpus = tf.config.experimental.list_logical_devices('GPU')
+                print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+            except RuntimeError as e:
+                print(e)
+
         # MongoDB configuration
         self.mongo_uri = MONGO_URI
         self.db_name = db_name

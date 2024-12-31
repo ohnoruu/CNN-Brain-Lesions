@@ -2,7 +2,7 @@ import numpy as np
 import nibabel as nib
 import tensorflow as tf
 from tensorflow.keras.utils import Sequence
-from tensorflow.keras.layers import Input, Conv3D, BatchNormalization, Activation, MaxPooling3D, Conv3DTranspose
+from tensorflow.keras.layers import Input, Conv3D, BatchNormalization, Activation, MaxPooling3D, Conv3DTranspose, ZeroPadding3D
 from tensorflow.keras.models import Model
 import scipy.ndimage as ndi
 import matplotlib.pyplot as plt
@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # batch: portion of an epoch
 # during one epoch, the model will see each training model once and will update its parameters based on the observed data
 class DataGenerator(Sequence):
-    def __init__(self, image_dir, label_dir, batch_size=32, shuffle=True):
+    def __init__(self, image_dir, label_dir, batch_size=4, shuffle=True):
         self.image_dir = image_dir
         self.label_dir = label_dir
         self.batch_size = batch_size
@@ -67,7 +67,7 @@ class DataGenerator(Sequence):
 
     def preprocess_label(self, label_data):
         label_data = np.resize(label_data, (224, 224, 26))
-        binary_label = (label_data > 0).astype(np.float64)
+        binary_label = (label_data > 0).astype(np.float32)
         logging.info("Completed preprocessing of label mask.")
         return binary_label
 
@@ -118,11 +118,8 @@ def segmentation(input_shape):
     x = BatchNormalization()(x)
     x = Activation('relu')(x)
 
-    # Additional Conv3DTranspose layer to match depth dimension
-    x = Conv3DTranspose(32, kernel_size=(3, 3, 3), strides=(1, 1, 2), padding='same')(x)  # Adjust depth dimension
-
-    # Final Conv3DTranspose layer to match the exact depth dimension
-    x = Conv3DTranspose(32, kernel_size=(3, 3, 3), strides=(1, 1, 2), padding='same')(x)  # Further adjust depth dimension
+    # Matching depth dimension
+    x = ZeroPadding3D(padding=((0, 0), (0, 0), (0, 2)))(x) # increases depth dimension
 
     # Ensure the output has the same number of channels as the target
     outputs = Conv3D(1, kernel_size=(1, 1, 1), activation='sigmoid', padding='same')(x)  # Single channel output
