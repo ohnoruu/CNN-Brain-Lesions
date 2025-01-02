@@ -10,7 +10,7 @@ import os
 import logging
 import math
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[logging.StreamHandler()]) # logging to console
 
 # LOADING IN DATA (FOR TRAINING)
 # epoch - one complete pass through the ENTIRE training dataset during the training of the model
@@ -43,8 +43,9 @@ class DataGenerator(Sequence):
         preprocessed_labels = [self.preprocess_label(nib.load(os.path.join(self.label_dir, lbl)).get_fdata()) for lbl in batch_labels]
 
         if self.augment:
-            logging.info("Augmenting images.")
-            preprocessed_images = [self.augment_image(image) for image in preprocessed_images]
+            logging.info("Augmenting batch of images and labels.")
+            preprocessed_images = [self.augmentation(img) for img in preprocessed_images]
+            preprocessed_labels = [self.augmentation(lbl) for lbl in preprocessed_labels]
 
         logging.info(f"Batch {index} loaded and preprocessed.")
         return np.array(preprocessed_images), np.array(preprocessed_labels)
@@ -91,10 +92,25 @@ class DataGenerator(Sequence):
         logging.info("Completed preprocessing/normalization.")
         return normalized_image
     
-    def augment_image(self, image):
-        # apply random rotation for training
-        image = tf.keras.layers.RandomRotation(factor=0.1, fill_mode='nearest', interpolation='bilinear')(image) # takes in numpy arrays of float32
-        return image
+    def augmentation(self, data, angle_range=(-10,10)): # applied to both images and labels
+        # generate random angles
+        angle_x = np.random.uniform(*angle_range)
+        angle_y = np.random.uniform(*angle_range)
+        angle_z = np.random.uniform(*angle_range)
+
+        # Check if the data is an image or a label
+        if data.ndim == 3 and np.max(data) <= 1:  # Assuming binary mask for labels
+            # Apply rotation with nearest neighbor interpolation (order=0) for labels
+            rotated_data = ndi.rotate(data, angle_x, axes=(1, 2), reshape=False, order=0)
+            rotated_data = ndi.rotate(rotated_data, angle_y, axes=(0, 2), reshape=False, order=0)
+            rotated_data = ndi.rotate(rotated_data, angle_z, axes=(0, 1), reshape=False, order=0)
+        else:
+            # Apply rotation with linear interpolation (order=1) for images
+            rotated_data = ndi.rotate(data, angle_x, axes=(1, 2), reshape=False, order=1)
+            rotated_data = ndi.rotate(rotated_data, angle_y, axes=(0, 2), reshape=False, order=1)
+            rotated_data = ndi.rotate(rotated_data, angle_z, axes=(0, 1), reshape=False, order=1)
+            
+        return rotated_data
     
     def on_epoch_end(self):
         if self.shuffle:
