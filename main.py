@@ -2,10 +2,7 @@
 import os
 os.environ['TF_GPU_ALLOCATOR'] = 'cuda_malloc_async'
 import tensorflow as tf
-from tensorflow.keras.layers import Input, Conv3D, BatchNormalization, Activation, MaxPooling3D, GlobalAveragePooling3D, Dense, Conv3DTranspose, ZeroPadding3D
-from tensorflow.keras.models import Model, load_model
-from tensorflow.keras.utils import Sequence
-from tensorflow.keras.callbacks import ModelCheckpoint
+from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
 from pymongo import MongoClient
 import gridfs
 import re
@@ -22,6 +19,7 @@ from filenames import training_names, label_names, testing_names, testing_label_
 # import components
 from components.modelfunctions import DataGenerator, segmentation, dice_coefficient, visualize_segmentation, save_nifti
 from components.mongofunctions import retrieve_nifti
+from components.learnaugment import LearnableAugmentation
 from credentials import MONGO_URI
 
 class LesionModel:
@@ -126,10 +124,18 @@ class LesionModel:
             verbose=1 # specifies output (1 for print, 0 for silent)
         )
 
+        early_stopping_callback = EarlyStopping(
+            monitor='val_accuracy',
+            mode='max',
+            patience=3, # number of epochs with no improvement after which training will be stopped
+            restore_best_weights=True,
+            verbose=1 # progress bar mode (output setting)
+        )
+
         history = self.model.fit(
             self.train_generator, # training data returned by DataGenerator as NumPy arrays
             epochs=self.epochs,
-            callbacks=[checkpoint_callback],
+            callbacks=[checkpoint_callback, early_stopping_callback],
             validation_data=self.test_generator
         )
 

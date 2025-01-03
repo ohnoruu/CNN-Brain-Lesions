@@ -2,13 +2,15 @@ import numpy as np
 import nibabel as nib
 import tensorflow as tf
 from tensorflow.keras.utils import Sequence
-from tensorflow.keras.layers import Input, Conv3D, BatchNormalization, Activation, MaxPooling3D, Conv3DTranspose, ZeroPadding3D
+from tensorflow.keras.layers import Input, Conv3D, BatchNormalization, Activation, MaxPooling3D, Conv3DTranspose, ZeroPadding3D, Dropout
 from tensorflow.keras.models import Model
 import scipy.ndimage as ndi
 import matplotlib.pyplot as plt
 import os
 import logging
 import math
+
+from .learnaugment import LearnableAugmentation
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[logging.StreamHandler()]) # logging to console
 
@@ -31,7 +33,7 @@ class DataGenerator(Sequence):
 
     def __len__(self):
         num_batches = math.ceil(len(self.images) / self.batch_size)
-        logging.info(f"Number of batches per epoch: {num_batches}")
+        #logging.info(f"Number of batches per epoch: {num_batches}")
         return num_batches
 
     def __getitem__(self, index):
@@ -41,13 +43,8 @@ class DataGenerator(Sequence):
 
         preprocessed_images = [self.preprocess_image(nib.load(os.path.join(self.image_dir, img)).get_fdata()) for img in batch_images]
         preprocessed_labels = [self.preprocess_label(nib.load(os.path.join(self.label_dir, lbl)).get_fdata()) for lbl in batch_labels]
-
-        if self.augment:
-            logging.info("Augmenting batch of images and labels.")
-            preprocessed_images = [self.augmentation(img) for img in preprocessed_images]
-            preprocessed_labels = [self.augmentation(lbl) for lbl in preprocessed_labels]
-
-        logging.info(f"Batch {index} loaded and preprocessed.")
+        
+        #logging.info(f"Batch {index} loaded and preprocessed.")
         return np.array(preprocessed_images), np.array(preprocessed_labels)
 
     def _get_label_file(self, image_file):
@@ -55,7 +52,7 @@ class DataGenerator(Sequence):
         logging.debug(f"Extracted identifier for image file {image_file}: {identifier}")
         for label_file in self.labels:
             if identifier in self.extract_identifier(label_file, file_type='label'):
-                logging.info(f"Label file {label_file} found for {image_file}.")
+                #logging.info(f"Label file {label_file} found for {image_file}.")
                 return label_file
         error_message = f"Label file not found for {image_file}."
         logging.error(error_message)
@@ -74,7 +71,7 @@ class DataGenerator(Sequence):
     def preprocess_label(self, label_data):
         label_data = np.resize(label_data, (224, 224, 26))
         binary_label = (label_data > 0).astype(np.float32)
-        logging.info("Completed preprocessing of label mask.")
+        #logging.info("Completed preprocessing of label mask.")
         return binary_label
 
     def preprocess_image(self, image_data):
@@ -89,28 +86,8 @@ class DataGenerator(Sequence):
             raise ValueError(error_message)
 
         normalized_image = (image_data - min_val) / range_val
-        logging.info("Completed preprocessing/normalization.")
+        #logging.info("Completed preprocessing/normalization.")
         return normalized_image
-    
-    def augmentation(self, data, angle_range=(-10,10)): # applied to both images and labels
-        # generate random angles
-        angle_x = np.random.uniform(*angle_range)
-        angle_y = np.random.uniform(*angle_range)
-        angle_z = np.random.uniform(*angle_range)
-
-        # Check if the data is an image or a label
-        if data.ndim == 3 and np.max(data) <= 1:  # Assuming binary mask for labels
-            # Apply rotation with nearest neighbor interpolation (order=0) for labels
-            rotated_data = ndi.rotate(data, angle_x, axes=(1, 2), reshape=False, order=0)
-            rotated_data = ndi.rotate(rotated_data, angle_y, axes=(0, 2), reshape=False, order=0)
-            rotated_data = ndi.rotate(rotated_data, angle_z, axes=(0, 1), reshape=False, order=0)
-        else:
-            # Apply rotation with linear interpolation (order=1) for images
-            rotated_data = ndi.rotate(data, angle_x, axes=(1, 2), reshape=False, order=1)
-            rotated_data = ndi.rotate(rotated_data, angle_y, axes=(0, 2), reshape=False, order=1)
-            rotated_data = ndi.rotate(rotated_data, angle_z, axes=(0, 1), reshape=False, order=1)
-            
-        return rotated_data
     
     def on_epoch_end(self):
         if self.shuffle:
@@ -119,30 +96,41 @@ class DataGenerator(Sequence):
 
 def segmentation(input_shape):
     inputs = Input(shape=input_shape)
+    labels = Input(shape=input_shape) # labels used for augmentation only so images line up with labels
+
+    x = LearnableAugmentation()(inputs)
+
+    # add Dropout after activation layers and before pooling layers to prevent overfitting
+    # Current dropout range of 30% to 40%, although can be adjusted.
 
     # Encoder
     x = Conv3D(32, kernel_size=(3, 3, 3), padding='same')(inputs)
     x = BatchNormalization()(x)
     x = Activation('relu')(x)
+    #x = Dropout(0.3)(x)
     x = MaxPooling3D(pool_size=(2, 2, 2))(x)  # Reduces spatial dimensions by half
 
     x = Conv3D(64, kernel_size=(3, 3, 3), padding='same')(x)
     x = BatchNormalization()(x)
     x = Activation('relu')(x)
+    #x = Dropout(0.3)(x)
     x = MaxPooling3D(pool_size=(2, 2, 2))(x)  # Reduces spatial dimensions by half again
 
     x = Conv3D(128, kernel_size=(3, 3, 3), padding='same')(x)
     x = BatchNormalization()(x)
     x = Activation('relu')(x)
+    #x = Dropout(0.4)(x) # add higher dropout rate as complexity increases
 
     # Decoder
     x = Conv3DTranspose(64, kernel_size=(3, 3, 3), strides=(2, 2, 2), padding='same')(x)  # Doubles spatial dimensions
     x = BatchNormalization()(x)
     x = Activation('relu')(x)
+    #x = Dropout(0.3)(x)
 
     x = Conv3DTranspose(32, kernel_size=(3, 3, 3), strides=(2, 2, 2), padding='same')(x)  # Doubles spatial dimensions again
     x = BatchNormalization()(x)
     x = Activation('relu')(x)
+    #x = Dropout(0.3)(x)
 
     # Matching depth dimension
     x = ZeroPadding3D(padding=((0, 0), (0, 0), (0, 2)))(x) # increases depth dimension
