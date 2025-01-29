@@ -24,14 +24,22 @@ class LearnableAugmentation(Layer):
         super(LearnableAugmentation, self).build(input_shape)
 
     def call(self, inputs):
-        # ensure angle stays within range
+        images, labels = inputs
+
+        # Ensure angle stays within range
         clipped_angle = tf.clip_by_value(self.angle, self.angle_range[0], self.angle_range[1])
         radian_angle = clipped_angle * tf.constant(3.14159 / 180, dtype=tf.float32)
 
-        # additional normalization required for keras_cv (keras_cv expects fraction of 360)
+        # Normalize angle for keras_cv rotation factor (expects fraction of 360)
         normalized_factor = radian_angle / (2 * tf.constant(3.14159, dtype=tf.float32))
-        rotated = keras_cv.layers.RandomRotation(factor=(normalized_factor))(inputs)
-        return rotated
+
+        # Rotate images normally (uses bilinear interpolation)
+        rotated_images = keras_cv.layers.RandomRotation(factor=(normalized_factor))(images)
+
+        # Rotate labels using nearest-neighbor interpolation to preserve binary values
+        rotated_labels = keras_cv.layers.RandomRotation(factor=(normalized_factor), interpolation="nearest")(labels)
+
+        return rotated_images, rotated_labels
         
     def get_config(self):
         # ensures customized layer can be saved and loaded during model serialization

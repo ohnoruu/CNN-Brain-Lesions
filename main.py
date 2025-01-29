@@ -105,7 +105,7 @@ class LesionModel:
 
         self.model.compile(
             optimizer='adam', # adaptive learning rate optimization algorithm combining AdaGrad and RMSProp
-            loss='binary_crossentropy',  # returns image mask (ex: 1 for lesion, 0 for non-lesion). Subject to change 
+            loss='binary_crossentropy',  # returns image mask (ex: 1 for lesion, 0 for non-lesion). Good since labels are binary masks
             metrics=['accuracy', dice_coefficient] # dice coefficient is used to evaluate segmentation models
         )
         logging.info("Model built and compiled.")

@@ -95,16 +95,16 @@ class DataGenerator(Sequence):
             np.random.shuffle(self.indexes)
 
 def segmentation(input_shape):
-    inputs = Input(shape=input_shape)
-    labels = Input(shape=input_shape) # labels used for augmentation only so images line up with labels
+    inputs = Input(shape=input_shape, name="image_input")
+    labels = Input(shape=input_shape, name="label_input") # labels used for augmentation in order to properly calculate loss when images are rotated/augmented
 
-    x = LearnableAugmentation()(inputs)
+    augmented_inputs, augmented_labels = LearnableAugmentation()([inputs, labels]) # LearnableAugmentation layer rotates both images and labels
 
     # add Dropout after activation layers and before pooling layers to prevent overfitting
     # Current dropout range of 30% to 40%, although can be adjusted.
 
     # Encoder
-    x = Conv3D(32, kernel_size=(3, 3, 3), padding='same')(inputs)
+    x = Conv3D(32, kernel_size=(3, 3, 3), padding='same')(augmented_inputs)
     x = BatchNormalization()(x)
     x = Activation('relu')(x)
     #x = Dropout(0.3)(x)
