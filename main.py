@@ -2,7 +2,7 @@
 import os
 os.environ['TF_GPU_ALLOCATOR'] = 'cuda_malloc_async'
 import tensorflow as tf
-from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
+from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, ReduceLROnPlateau
 from pymongo import MongoClient
 import gridfs
 import re
@@ -19,7 +19,6 @@ from filenames import training_names, label_names, testing_names, testing_label_
 # import components
 from components.modelfunctions import DataGenerator, segmentation, dice_coefficient, visualize_segmentation, save_nifti
 from components.mongofunctions import retrieve_nifti
-from components.learnaugment import LearnableAugmentation
 from credentials import MONGO_URI
 
 class LesionModel:
@@ -82,8 +81,7 @@ class LesionModel:
             self.train_img_dir, 
             self.train_labels_dir, 
             batch_size=self.batch_size, 
-            shuffle=True,
-            augment=True
+            shuffle=True
         )
         logging.info("DataGenerator instance created with training data.")
 
@@ -93,8 +91,7 @@ class LesionModel:
             self.test_img_dir, 
             self.test_labels_dir, 
             batch_size=self.batch_size, 
-            shuffle=False,
-            augment=False
+            shuffle=False
         )
         logging.info("DataGenerator instance created with testing data.")
     
@@ -132,10 +129,18 @@ class LesionModel:
             verbose=1 # progress bar mode (output setting)
         )
 
+        lr_scheduler = ReduceLROnPlateau(
+            monitor='val_accuracy',
+            factor=0.2, # factor by which the learning rate will be reduced
+            patience=2, # number of epochs with no improvement after which learning rate will be reduced
+            min_lr=1e-6,
+            verbose=1 # progress bar mode (output setting)
+        )
+
         history = self.model.fit(
             self.train_generator, # training data returned by DataGenerator as NumPy arrays
             epochs=self.epochs,
-            callbacks=[checkpoint_callback, early_stopping_callback],
+            callbacks=[checkpoint_callback, early_stopping_callback, lr_scheduler],
             validation_data=self.test_generator
         )
 

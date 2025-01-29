@@ -10,8 +10,6 @@ import os
 import logging
 import math
 
-from .learnaugment import LearnableAugmentation
-
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[logging.StreamHandler()]) # logging to console
 
 # LOADING IN DATA (FOR TRAINING)
@@ -19,12 +17,11 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # batch: portion of an epoch
 # during one epoch, the model will see each training model once and will update its parameters based on the observed data
 class DataGenerator(Sequence):
-    def __init__(self, image_dir, label_dir, batch_size=4, shuffle=True, augment=False):
+    def __init__(self, image_dir, label_dir, batch_size=4, shuffle=True):
         self.image_dir = image_dir
         self.label_dir = label_dir
         self.batch_size = batch_size
         self.shuffle = shuffle
-        self.augment = augment # should be set to true for training and false for testing/validation
         self.images = [f for f in os.listdir(image_dir)]
         self.labels = [f for f in os.listdir(label_dir)]
         self.indexes = np.arange(len(self.images))
@@ -95,16 +92,13 @@ class DataGenerator(Sequence):
             np.random.shuffle(self.indexes)
 
 def segmentation(input_shape):
-    inputs = Input(shape=input_shape, name="image_input")
-    labels = Input(shape=input_shape, name="label_input") # labels used for augmentation in order to properly calculate loss when images are rotated/augmented
-
-    augmented_inputs, augmented_labels = LearnableAugmentation()([inputs, labels]) # LearnableAugmentation layer rotates both images and labels
+    inputs = Input(shape=input_shape)
 
     # add Dropout after activation layers and before pooling layers to prevent overfitting
     # Current dropout range of 30% to 40%, although can be adjusted.
 
     # Encoder
-    x = Conv3D(32, kernel_size=(3, 3, 3), padding='same')(augmented_inputs)
+    x = Conv3D(32, kernel_size=(3, 3, 3), padding='same')(inputs)
     x = BatchNormalization()(x)
     x = Activation('relu')(x)
     #x = Dropout(0.3)(x)
