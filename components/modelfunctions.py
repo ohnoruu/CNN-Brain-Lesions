@@ -140,37 +140,39 @@ def segmentation(input_shape):
     # Current dropout range of 30% to 40%, although can be adjusted.
 
     # Encoder
-    c1 = Conv3D(32, kernel_size=(3, 3, 3), padding='same', activation='relu')(inputs)
-    c1 = BatchNormalization()(c1)
+    x = Conv3D(32, kernel_size=(3, 3, 3), padding='same')(inputs)
+    x = BatchNormalization()(x)
+    x = Activation('relu')(x)
     #x = Dropout(0.3)(x)
-    p1 = MaxPooling3D(pool_size=(2, 2, 2))(c1)  # Reduces spatial dimensions by half
+    x = MaxPooling3D(pool_size=(2, 2, 2))(x)  # Reduces spatial dimensions by half
 
-    c2 = Conv3D(64, kernel_size=(3, 3, 3), padding='same', activation='relu')(p1)
-    c2 = BatchNormalization()(c2)
+    x = Conv3D(64, kernel_size=(3, 3, 3), padding='same')(x)
+    x = BatchNormalization()(x)
+    x = Activation('relu')(x)
     #x = Dropout(0.3)(x)
-    p2 = MaxPooling3D(pool_size=(2, 2, 2))(c2)  # Reduces spatial dimensions by half again
+    x = MaxPooling3D(pool_size=(2, 2, 2))(x)  # Reduces spatial dimensions by half again
 
-    c3 = Conv3D(128, kernel_size=(3, 3, 3), padding='same', activation='relu')(p2)
-    c3 = BatchNormalization()(c3)
+    x = Conv3D(128, kernel_size=(3, 3, 3), padding='same')(x)
+    x = BatchNormalization()(x)
+    x = Activation('relu')(x)
+    #x = Dropout(0.4)(x) # add higher dropout rate as complexity increases
 
-    # Decoder 
-    # 1/30/25 implemented skip connections
-    u1 = Conv3DTranspose(64, kernel_size=(3, 3, 3), strides=(2, 2, 2), padding='same')(c3)  # Doubles spatial dimensions
-    u1, c2 = match_depth(u1, c2)  # Ensure depth dimensions match before skip connection
-    u1 = Concatenate()([u1, c2])  # Skip connection
-    u1 = BatchNormalization()(u1)
-    u1 = Activation('relu')(u1) # added activation after concatenation
-    #x = Dropout(0.3)(x)
-
-    u2 = Conv3DTranspose(32, kernel_size=(3, 3, 3), strides=(2, 2, 2), padding='same')(u1)  # Doubles spatial dimensions
-    u2, c2 = match_depth(u2, c1)  # Ensure depth dimensions match before skip connection
-    u2 = Concatenate()([u2, c1])  # Skip connection
-    u2 = BatchNormalization()(u2)
-    u2 = Activation('relu')(u2) # added activation after concatenation
+    # Decoder
+    x = Conv3DTranspose(64, kernel_size=(3, 3, 3), strides=(2, 2, 2), padding='same')(x)  # Doubles spatial dimensions
+    x = BatchNormalization()(x)
+    x = Activation('relu')(x)
     #x = Dropout(0.3)(x)
 
-    # Output layer
-    outputs = Conv3D(1, kernel_size=(1, 1, 1), activation='sigmoid', padding='same')(u2)
+    x = Conv3DTranspose(32, kernel_size=(3, 3, 3), strides=(2, 2, 2), padding='same')(x)  # Doubles spatial dimensions again
+    x = BatchNormalization()(x)
+    x = Activation('relu')(x)
+    #x = Dropout(0.3)(x)
+
+    # Matching depth dimension
+    x = ZeroPadding3D(padding=((0, 0), (0, 0), (0, 2)))(x) # increases depth dimension
+
+    # Ensure the output has the same number of channels as the target
+    outputs = Conv3D(1, kernel_size=(1, 1, 1), activation='sigmoid', padding='same')(x)  # Single channel output
 
     model = Model(inputs=inputs, outputs=outputs)
     return model
