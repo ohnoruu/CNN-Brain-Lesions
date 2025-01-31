@@ -82,7 +82,7 @@ class LesionModel:
             self.train_labels_dir, 
             batch_size=self.batch_size, 
             shuffle=True,
-            augment=True
+            augment=False # 1/30/25 temporarily set to False for testing purposes
         )
         logging.info("DataGenerator instance created with training data.")
 

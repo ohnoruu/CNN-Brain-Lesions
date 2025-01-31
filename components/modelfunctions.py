@@ -2,7 +2,7 @@ import numpy as np
 import nibabel as nib
 import tensorflow as tf
 from tensorflow.keras.utils import Sequence
-from tensorflow.keras.layers import Input, Conv3D, BatchNormalization, Activation, MaxPooling3D, Conv3DTranspose, ZeroPadding3D, Dropout
+from tensorflow.keras.layers import Input, Conv3D, BatchNormalization, Activation, MaxPooling3D, Conv3DTranspose, Cropping3D, ZeroPadding3D, Concatenate, Dropout
 from tensorflow.keras.models import Model
 import scipy.ndimage as ndi
 import matplotlib.pyplot as plt
@@ -97,18 +97,41 @@ class DataGenerator(Sequence):
         return normalized_image
     
     def random_rotate(self, image, label):
-        # randomly rotate image and corresponding label for data augmentation. original unrotated image still kept
         angle = np.random.uniform(-self.rotation_range, self.rotation_range)
-        # axes=(0,1) rotates within axial plane (H,W)
-        # order = 1 for bilinear interpolation (MRI images) and 0 for nearest neighbor interpolation (labels)
-        rotated_image = ndi.rotate(image, angle, axes=(0,1), order=1, reshape=False, mode='nearest') # bilinear rotation for MRI
-        rotated_label = ndi.rotate(label, angle, axes=(0,1), order=0, reshape=False, mode='nearest') # nearest neighbor rotation for labels/binary masks
+        
+        # Rotate 4D MRI images slice-by-slice
+        if image.ndim == 4:  
+            rotated_image = np.stack(
+                [ndi.rotate(image[:, :, i, :], angle, axes=(0,1), order=1, reshape=False, mode='nearest') 
+                for i in range(image.shape[2])], axis=2)
+        else:
+            rotated_image = ndi.rotate(image, angle, axes=(0,1), order=1, reshape=False, mode='nearest')
+        
+        # Rotate 3D label masks as a whole volume
+        rotated_label = ndi.rotate(label, angle, axes=(0,1), order=0, reshape=False, mode='nearest')
+
         return rotated_image, rotated_label
 
     def on_epoch_end(self):
         if self.shuffle:
             logging.info("Shuffling data.")
             np.random.shuffle(self.indexes)
+
+def match_depth(tensor1, tensor2):
+    """Ensures tensor1 and tensor2 have the same depth dimension (third spatial axis)."""
+    depth1, depth2 = int(tensor1.shape[3]), int(tensor2.shape[3])
+    depth_diff = abs(depth1 - depth2)
+
+    if depth1 > depth2:  # tensor1 is deeper → pad tensor2
+        pad_front = depth_diff // 2
+        pad_back = depth_diff - pad_front
+        tensor2 = ZeroPadding3D(padding=(0, 0, (pad_front, pad_back)))(tensor2)
+    elif depth1 < depth2:  # tensor2 is deeper → pad tensor1
+        pad_front = depth_diff // 2
+        pad_back = depth_diff - pad_front
+        tensor1 = ZeroPadding3D(padding=(0, 0, (pad_front, pad_back)))(tensor1)
+
+    return tensor1, tensor2  # Return both tensors to ensure correct shape
 
 def segmentation(input_shape):
     inputs = Input(shape=input_shape)
@@ -117,39 +140,37 @@ def segmentation(input_shape):
     # Current dropout range of 30% to 40%, although can be adjusted.
 
     # Encoder
-    x = Conv3D(32, kernel_size=(3, 3, 3), padding='same')(inputs)
-    x = BatchNormalization()(x)
-    x = Activation('relu')(x)
+    c1 = Conv3D(32, kernel_size=(3, 3, 3), padding='same', activation='relu')(inputs)
+    c1 = BatchNormalization()(c1)
     #x = Dropout(0.3)(x)
-    x = MaxPooling3D(pool_size=(2, 2, 2))(x)  # Reduces spatial dimensions by half
+    p1 = MaxPooling3D(pool_size=(2, 2, 2))(c1)  # Reduces spatial dimensions by half
 
-    x = Conv3D(64, kernel_size=(3, 3, 3), padding='same')(x)
-    x = BatchNormalization()(x)
-    x = Activation('relu')(x)
+    c2 = Conv3D(64, kernel_size=(3, 3, 3), padding='same', activation='relu')(p1)
+    c2 = BatchNormalization()(c2)
     #x = Dropout(0.3)(x)
-    x = MaxPooling3D(pool_size=(2, 2, 2))(x)  # Reduces spatial dimensions by half again
+    p2 = MaxPooling3D(pool_size=(2, 2, 2))(c2)  # Reduces spatial dimensions by half again
 
-    x = Conv3D(128, kernel_size=(3, 3, 3), padding='same')(x)
-    x = BatchNormalization()(x)
-    x = Activation('relu')(x)
-    #x = Dropout(0.4)(x) # add higher dropout rate as complexity increases
+    c3 = Conv3D(128, kernel_size=(3, 3, 3), padding='same', activation='relu')(p2)
+    c3 = BatchNormalization()(c3)
 
-    # Decoder
-    x = Conv3DTranspose(64, kernel_size=(3, 3, 3), strides=(2, 2, 2), padding='same')(x)  # Doubles spatial dimensions
-    x = BatchNormalization()(x)
-    x = Activation('relu')(x)
-    #x = Dropout(0.3)(x)
-
-    x = Conv3DTranspose(32, kernel_size=(3, 3, 3), strides=(2, 2, 2), padding='same')(x)  # Doubles spatial dimensions again
-    x = BatchNormalization()(x)
-    x = Activation('relu')(x)
+    # Decoder 
+    # 1/30/25 implemented skip connections
+    u1 = Conv3DTranspose(64, kernel_size=(3, 3, 3), strides=(2, 2, 2), padding='same')(c3)  # Doubles spatial dimensions
+    u1, c2 = match_depth(u1, c2)  # Ensure depth dimensions match before skip connection
+    u1 = Concatenate()([u1, c2])  # Skip connection
+    u1 = BatchNormalization()(u1)
+    u1 = Activation('relu')(u1) # added activation after concatenation
     #x = Dropout(0.3)(x)
 
-    # Matching depth dimension
-    x = ZeroPadding3D(padding=((0, 0), (0, 0), (0, 2)))(x) # increases depth dimension
+    u2 = Conv3DTranspose(32, kernel_size=(3, 3, 3), strides=(2, 2, 2), padding='same')(u1)  # Doubles spatial dimensions
+    u2, c2 = match_depth(u2, c1)  # Ensure depth dimensions match before skip connection
+    u2 = Concatenate()([u2, c1])  # Skip connection
+    u2 = BatchNormalization()(u2)
+    u2 = Activation('relu')(u2) # added activation after concatenation
+    #x = Dropout(0.3)(x)
 
-    # Ensure the output has the same number of channels as the target
-    outputs = Conv3D(1, kernel_size=(1, 1, 1), activation='sigmoid', padding='same')(x)  # Single channel output
+    # Output layer
+    outputs = Conv3D(1, kernel_size=(1, 1, 1), activation='sigmoid', padding='same')(u2)
 
     model = Model(inputs=inputs, outputs=outputs)
     return model
