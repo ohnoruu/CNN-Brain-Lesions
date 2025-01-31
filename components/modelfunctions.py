@@ -17,11 +17,13 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # batch: portion of an epoch
 # during one epoch, the model will see each training model once and will update its parameters based on the observed data
 class DataGenerator(Sequence):
-    def __init__(self, image_dir, label_dir, batch_size=4, shuffle=True):
+    def __init__(self, image_dir, label_dir, batch_size=4, shuffle=True, rotation_range=20, augment=False):
         self.image_dir = image_dir
         self.label_dir = label_dir
         self.batch_size = batch_size
         self.shuffle = shuffle
+        self.rotation_range = rotation_range # range of rotation for data augmentation. 20 is a safe range to prevent distortion
+        self.augment = augment
         self.images = [f for f in os.listdir(image_dir)]
         self.labels = [f for f in os.listdir(label_dir)]
         self.indexes = np.arange(len(self.images))
@@ -34,13 +36,21 @@ class DataGenerator(Sequence):
         return num_batches
 
     def __getitem__(self, index):
+        # generating batches
         indexes = self.indexes[index * self.batch_size:(index + 1) * self.batch_size]
         batch_images = [self.images[i] for i in indexes]
         batch_labels = [self._get_label_file(img) for img in batch_images]
 
+        # preprocessing (image normalization, label binarization)
         preprocessed_images = [self.preprocess_image(nib.load(os.path.join(self.image_dir, img)).get_fdata()) for img in batch_images]
         preprocessed_labels = [self.preprocess_label(nib.load(os.path.join(self.label_dir, lbl)).get_fdata()) for lbl in batch_labels]
-        
+
+        if self.augment:
+        # data augmentation: random rotation
+            augmented_pairs = [self.random_rotate(img, lbl) for img, lbl in zip(preprocessed_images, preprocessed_labels)]
+            preprocessed_images.extend(img for img, lbl in augmented_pairs)
+            preprocessed_labels.extend(lbl for img, lbl in augmented_pairs)
+
         #logging.info(f"Batch {index} loaded and preprocessed.")
         return np.array(preprocessed_images), np.array(preprocessed_labels)
 
@@ -86,6 +96,15 @@ class DataGenerator(Sequence):
         #logging.info("Completed preprocessing/normalization.")
         return normalized_image
     
+    def random_rotate(self, image, label):
+        # randomly rotate image and corresponding label for data augmentation. original unrotated image still kept
+        angle = np.random.uniform(-self.rotation_range, self.rotation_range)
+        # axes=(0,1) rotates within axial plane (H,W)
+        # order = 1 for bilinear interpolation (MRI images) and 0 for nearest neighbor interpolation (labels)
+        rotated_image = ndi.rotate(image, angle, axes=(0,1), order=1, reshape=False, mode='nearest') # bilinear rotation for MRI
+        rotated_label = ndi.rotate(label, angle, axes=(0,1), order=0, reshape=False, mode='nearest') # nearest neighbor rotation for labels/binary masks
+        return rotated_image, rotated_label
+
     def on_epoch_end(self):
         if self.shuffle:
             logging.info("Shuffling data.")

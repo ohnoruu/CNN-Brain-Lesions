@@ -81,7 +81,8 @@ class LesionModel:
             self.train_img_dir, 
             self.train_labels_dir, 
             batch_size=self.batch_size, 
-            shuffle=True
+            shuffle=True,
+            augment=True
         )
         logging.info("DataGenerator instance created with training data.")
 
@@ -91,7 +92,8 @@ class LesionModel:
             self.test_img_dir, 
             self.test_labels_dir, 
             batch_size=self.batch_size, 
-            shuffle=False
+            shuffle=False,
+            augment=False
         )
         logging.info("DataGenerator instance created with testing data.")
     
