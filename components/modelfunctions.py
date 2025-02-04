@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # batch: portion of an epoch
 # during one epoch, the model will see each training model once and will update its parameters based on the observed data
 class DataGenerator(Sequence):
-    def __init__(self, image_dir, label_dir, batch_size=4, shuffle=True, rotation_range=20, augment=False):
+    def __init__(self, image_dir, label_dir, batch_size=32, shuffle=True, rotation_range=10, augment=False):
         self.image_dir = image_dir
         self.label_dir = label_dir
         self.batch_size = batch_size

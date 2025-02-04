@@ -22,7 +22,7 @@ from components.mongofunctions import retrieve_nifti
 from credentials import MONGO_URI
 
 class LesionModel:
-    def __init__(self, db_name='lesion_dataset', batch_size=4, epochs=10, checkpoint_dir='checkpoints', output_dir='testview'):
+    def __init__(self, db_name='lesion_dataset', batch_size=32, epochs=20, checkpoint_dir='checkpoints', output_dir='testview'):
         # GPU configuration to prevent memory errors
         # Allows TF to allocate GPU memory as needed
         gpus = tf.config.experimental.list_physical_devices('GPU')
