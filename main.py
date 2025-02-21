@@ -1,11 +1,19 @@
 # imports
 import os
+# configure environment variables for GPU
+
+os.environ['CUDA_PATH'] = r'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.2'
+os.environ['CUDA_PATH_V11_2'] = r'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.2'
+os.environ['PATH'] = r'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.2\bin;' + os.environ['PATH']
+os.environ['PATH'] = r'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.2\libnvvp;' + os.environ['PATH']
+os.environ['PATH'] = r'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.2\include;' + os.environ['PATH']
+os.environ['PATH'] = r'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.2\extras\CUPTI\lib64;' + os.environ['PATH']
+os.environ['PATH'] = r'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.2\lib\x64;' + os.environ['PATH']
+
 os.environ['TF_GPU_ALLOCATOR'] = 'cuda_malloc_async'
+
 import tensorflow as tf
-from tensorflow.keras.layers import Input, Conv3D, BatchNormalization, Activation, MaxPooling3D, GlobalAveragePooling3D, Dense, Conv3DTranspose, ZeroPadding3D
-from tensorflow.keras.models import Model, load_model
-from tensorflow.keras.utils import Sequence
-from tensorflow.keras.callbacks import ModelCheckpoint
+from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, ReduceLROnPlateau
 from pymongo import MongoClient
 import gridfs
 import re
@@ -25,7 +33,7 @@ from components.mongofunctions import retrieve_nifti
 from credentials import MONGO_URI
 
 class LesionModel:
-    def __init__(self, db_name='lesion_dataset', batch_size=4, epochs=10, checkpoint_dir='checkpoints', output_dir='testview'):
+    def __init__(self, db_name='lesion_dataset', batch_size=4, epochs=20, checkpoint_dir='checkpoints', output_dir='testview'):
         # GPU configuration to prevent memory errors
         # Allows TF to allocate GPU memory as needed
         gpus = tf.config.experimental.list_physical_devices('GPU')
@@ -77,78 +85,6 @@ class LesionModel:
     # LOADING DATA
     # Since MongoDB requires paid plan for large data storage, local repository files are retrieved.
     # Retrieval for smaller instances (ex: retrieving shape for segmentation and visualization) will still be done through MongoDB using the retrieve_nifti function in mongofunctions.py
-    
-    """
-    def extract_identifier(self, filename, file_type='image'):
-        # uses split to extract identifier from filename (in this case, the subject number listed in the filename)
-        if file_type == 'image':
-             # Example: 'sub-1_dwi_sub-1_rec-TRACE_dwi.nii.gz'
-            parts = filename.split('_space-')[0].split('_rec-')[0]
-        elif file_type == 'label':
-            # Example: 'derivatives_lesion_masks_sub-1_dwi_sub-1_space-TRACE_desc-lesion_mask.nii.gz'
-            parts = filename.split('_space-')[0].replace('derivatives_lesion_masks_', '')
-        else:
-            parts = filename.split('_')[0]
-        return parts
-    """
-    """
-    # the application crashes if too much data is loaded at once, so the data is loaded in batches
-    # chunks will later be loaded in batches when a DataGenerator instance is created. This should operate as normally as appending each image to a list
-    def load_data_in_chunks(self, image_dir, label_dir, chunk_size=100, wait_time=1, max_retries=3):
-        image_files = [f for f in os.listdir(image_dir)]
-        label_files = [f for f in os.listdir(label_dir)]
-
-        label_dict = {self.extract_identifier(f, file_type='label'): f for f in label_files}
-        failed_images = []
-
-        for i in range(0, len(image_files), chunk_size):
-            chunk_images = []
-            chunk_labels = []
-            chunk_files = image_files[i:i + chunk_size]
-
-            for img_file in chunk_files:
-                identifier = self.extract_identifier(img_file, file_type='image')
-                label_file = label_dict.get(identifier)
-
-                if label_file:
-                    img_path = os.path.join(image_dir, img_file)
-                    label_path = os.path.join(label_dir, label_file)
-                    
-                    try:
-                        img_nii = nib.load(img_path)
-                        label_nii = nib.load(label_path)
-                    except Exception as e:
-                        logging.error(f"Error loading NiFTi files: {e}")
-                        failed_images.append(identifier)
-                        continue
-                    
-                    retries = 0
-                    while retries < max_retries:
-                        try:
-                            img_data = img_nii.get_fdata()
-                            label_data = label_nii.get_fdata()
-                            break # break out of loop if successful
-                        except Exception as e:
-                            retries += 1
-                            logging.error(f"Error converting NiFTi files to numpy arrays: {e}")
-                            if retries == max_retries:
-                                logging.error(f"Max retries reached. Failed to convert NiFTi files to numpy arrays.")
-                                failed_images.append(identifier)
-                                break
-                    if retries == max_retries:
-                        continue # skips to next file of numpy conversion fails.
-                    chunk_images.append(img_data)
-                    chunk_labels.append(label_data)
-                    logging.info(f"Loaded {img_file} and {label_file}.")
-                else:
-                    logging.warning(f"No label found for image {img_file}.")
-                    failed_images.append(identifier)
-                    continue
-
-            yield chunk_images, chunk_labels, failed_images
-
-            time.sleep(1) # sleep for 1 second to prevent application from being overwhelmed
-    """
 
     def load_training_data(self):
         logging.info("Loading training data.")
@@ -156,7 +92,8 @@ class LesionModel:
             self.train_img_dir, 
             self.train_labels_dir, 
             batch_size=self.batch_size, 
-            shuffle=True
+            shuffle=True,
+            augment=False # 1/30/25 temporarily set to False for testing purposes
         )
         logging.info("DataGenerator instance created with training data.")
 
@@ -166,7 +103,8 @@ class LesionModel:
             self.test_img_dir, 
             self.test_labels_dir, 
             batch_size=self.batch_size, 
-            shuffle=False
+            shuffle=False,
+            augment=False
         )
         logging.info("DataGenerator instance created with testing data.")
     
@@ -177,7 +115,7 @@ class LesionModel:
 
         self.model.compile(
             optimizer='adam', # adaptive learning rate optimization algorithm combining AdaGrad and RMSProp
-            loss='binary_crossentropy',  # returns image mask (ex: 1 for lesion, 0 for non-lesion). Subject to change 
+            loss='binary_crossentropy',  # returns image mask (ex: 1 for lesion, 0 for non-lesion). Good since labels are binary masks
             metrics=['accuracy', dice_coefficient] # dice coefficient is used to evaluate segmentation models
         )
         logging.info("Model built and compiled.")
@@ -196,10 +134,26 @@ class LesionModel:
             verbose=1 # specifies output (1 for print, 0 for silent)
         )
 
+        early_stopping_callback = EarlyStopping(
+            monitor='val_accuracy',
+            mode='max',
+            patience=3, # number of epochs with no improvement after which training will be stopped
+            restore_best_weights=True,
+            verbose=1 # progress bar mode (output setting)
+        )
+
+        lr_scheduler = ReduceLROnPlateau(
+            monitor='val_accuracy',
+            factor=0.2, # factor by which the learning rate will be reduced
+            patience=2, # number of epochs with no improvement after which learning rate will be reduced
+            min_lr=1e-6,
+            verbose=1 # progress bar mode (output setting)
+        )
+
         history = self.model.fit(
             self.train_generator, # training data returned by DataGenerator as NumPy arrays
             epochs=self.epochs,
-            callbacks=[checkpoint_callback],
+            callbacks=[checkpoint_callback, early_stopping_callback, lr_scheduler],
             validation_data=self.test_generator
         )
 
@@ -211,21 +165,48 @@ class LesionModel:
         logging.info(f"Validation accuracy: {val_accuracy[-1]}")
         logging.info("Training weights saved and model training was completed.")
 
-    def visualize_results(self, image_name, threshold=0.5): # used for visualizing single nifti images (not specific to the ones in the dataset)
-        os.makedirs(self.output_dir, exist_ok=True) # ensure output directory exists
+    def visualize_results(self, image_path, threshold=0.5):
+        # Ensure output directory exists
+        os.makedirs(self.output_dir, exist_ok=True)
+        
+        # Load model weights
         self.model.load_weights(os.path.join(self.checkpoint_dir, 'model.weights.h5'))
 
-        image_data, affine = retrieve_nifti(image_name, self.fs_testing_images)
+        # Load image data from local directory
+        image_data = nib.load(image_path).get_fdata()
+        affine = nib.load(image_path).affine
 
-        highlighted_nifti = visualize_segmentation(image_data, self.model, threshold)
+        # Preprocess the image data
+        image_data = np.resize(image_data, (224, 224, 26, 1))
+        min_val = np.min(image_data)
+        max_val = np.max(image_data)
+        range_val = max_val - min_val
 
-        highlighted_nifti_img = nib.Nifti1Image(highlighted_nifti, affine)
+        if range_val == 0:
+            error_message = "Preprocessing failed: Image has zero variance, leading to division by zero."
+            logging.error(error_message)
+            raise ValueError(error_message)
 
-        filename = os.path.basename(image_name)
-        output_path = os.path.join(self.output_dir, filename) # saves to testview
-        nib.save(highlighted_nifti_img, output_path)
+        normalized_image = (image_data - min_val) / range_val
 
-        logging.info(f"Image visualization {filename} saved to {output_path}.")
+        # Ensure the image data has the correct shape for prediction
+        normalized_image = np.expand_dims(normalized_image, axis=0)   # Add batch dimension
+
+        # Predict segmentation mask
+        predicted_mask = self.model.predict(normalized_image)[0, :, :, :, 0]  # Remove batch and channel dimensions
+
+        # Get the binary segmentation mask
+        binary_mask = visualize_segmentation(predicted_mask, threshold)
+
+        # Create NIfTI image with the binary mask
+        binary_mask_img = nib.Nifti1Image(binary_mask, affine)
+
+        # Save the binary mask as a NIfTI image
+        filename = os.path.basename(image_path)
+        output_path = os.path.join(self.output_dir, filename)
+        nib.save(binary_mask_img, output_path)
+
+        logging.info(f"Binary mask {filename} saved to {output_path}.")
     
     def visualize_all(self, testing_names, threshold=0.5): # used to retrieve all images in a MongoDB collection, most likely for testing process
         for name in testing_names:
@@ -240,10 +221,15 @@ class LesionModel:
 if __name__ == '__main__':
     try:
         model = LesionModel()
+        """
         model.load_training_data()
         model.load_testing_data()
         model.build_model()
         model.train_model()
+        """
+        model.build_model()
+        model.visualize_results(r'tempdata\testingimages\sub-1414_dwi_sub-1414_rec-TRACE_dwi.nii.gz')
+        
 
         #model.visualize_results('image_name', model.fs_testing_images) # can refer to filenames.py to get image_name
         #model.visualize_all(testing_names)
