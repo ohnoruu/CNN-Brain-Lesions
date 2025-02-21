@@ -1,6 +1,7 @@
 # imports
 import os
 # configure environment variables for GPU
+
 os.environ['CUDA_PATH'] = r'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.2'
 os.environ['CUDA_PATH_V11_2'] = r'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.2'
 os.environ['PATH'] = r'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.2\bin;' + os.environ['PATH']
@@ -8,6 +9,7 @@ os.environ['PATH'] = r'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.2\
 os.environ['PATH'] = r'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.2\include;' + os.environ['PATH']
 os.environ['PATH'] = r'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.2\extras\CUPTI\lib64;' + os.environ['PATH']
 os.environ['PATH'] = r'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.2\lib\x64;' + os.environ['PATH']
+
 os.environ['TF_GPU_ALLOCATOR'] = 'cuda_malloc_async'
 
 import tensorflow as tf
@@ -31,7 +33,7 @@ from components.mongofunctions import retrieve_nifti
 from credentials import MONGO_URI
 
 class LesionModel:
-    def __init__(self, db_name='lesion_dataset', batch_size=32, epochs=20, checkpoint_dir='checkpoints', output_dir='testview'):
+    def __init__(self, db_name='lesion_dataset', batch_size=4, epochs=20, checkpoint_dir='checkpoints', output_dir='testview'):
         # GPU configuration to prevent memory errors
         # Allows TF to allocate GPU memory as needed
         gpus = tf.config.experimental.list_physical_devices('GPU')
@@ -163,21 +165,48 @@ class LesionModel:
         logging.info(f"Validation accuracy: {val_accuracy[-1]}")
         logging.info("Training weights saved and model training was completed.")
 
-    def visualize_results(self, image_name, threshold=0.5): # used for visualizing single nifti images (not specific to the ones in the dataset)
-        os.makedirs(self.output_dir, exist_ok=True) # ensure output directory exists
+    def visualize_results(self, image_path, threshold=0.5):
+        # Ensure output directory exists
+        os.makedirs(self.output_dir, exist_ok=True)
+        
+        # Load model weights
         self.model.load_weights(os.path.join(self.checkpoint_dir, 'model.weights.h5'))
 
-        image_data, affine = retrieve_nifti(image_name, self.fs_testing_images)
+        # Load image data from local directory
+        image_data = nib.load(image_path).get_fdata()
+        affine = nib.load(image_path).affine
 
-        highlighted_nifti = visualize_segmentation(image_data, self.model, threshold)
+        # Preprocess the image data
+        image_data = np.resize(image_data, (224, 224, 26, 1))
+        min_val = np.min(image_data)
+        max_val = np.max(image_data)
+        range_val = max_val - min_val
 
-        highlighted_nifti_img = nib.Nifti1Image(highlighted_nifti, affine)
+        if range_val == 0:
+            error_message = "Preprocessing failed: Image has zero variance, leading to division by zero."
+            logging.error(error_message)
+            raise ValueError(error_message)
 
-        filename = os.path.basename(image_name)
-        output_path = os.path.join(self.output_dir, filename) # saves to testview
-        nib.save(highlighted_nifti_img, output_path)
+        normalized_image = (image_data - min_val) / range_val
 
-        logging.info(f"Image visualization {filename} saved to {output_path}.")
+        # Ensure the image data has the correct shape for prediction
+        normalized_image = np.expand_dims(normalized_image, axis=0)   # Add batch dimension
+
+        # Predict segmentation mask
+        predicted_mask = self.model.predict(normalized_image)[0, :, :, :, 0]  # Remove batch and channel dimensions
+
+        # Get the binary segmentation mask
+        binary_mask = visualize_segmentation(predicted_mask, threshold)
+
+        # Create NIfTI image with the binary mask
+        binary_mask_img = nib.Nifti1Image(binary_mask, affine)
+
+        # Save the binary mask as a NIfTI image
+        filename = os.path.basename(image_path)
+        output_path = os.path.join(self.output_dir, filename)
+        nib.save(binary_mask_img, output_path)
+
+        logging.info(f"Binary mask {filename} saved to {output_path}.")
     
     def visualize_all(self, testing_names, threshold=0.5): # used to retrieve all images in a MongoDB collection, most likely for testing process
         for name in testing_names:
@@ -192,10 +221,15 @@ class LesionModel:
 if __name__ == '__main__':
     try:
         model = LesionModel()
+        """
         model.load_training_data()
         model.load_testing_data()
         model.build_model()
         model.train_model()
+        """
+        model.build_model()
+        model.visualize_results(r'tempdata\testingimages\sub-1414_dwi_sub-1414_rec-TRACE_dwi.nii.gz')
+        
 
         #model.visualize_results('image_name', model.fs_testing_images) # can refer to filenames.py to get image_name
         #model.visualize_all(testing_names)

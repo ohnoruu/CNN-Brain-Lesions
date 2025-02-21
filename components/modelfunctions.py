@@ -200,22 +200,19 @@ def dice_coefficient(y_true, y_pred, smooth=1):
     dice = (2. * intersection + smooth) / (tf.reduce_sum(y_true_f) + tf.reduce_sum(y_pred_f) + smooth)
     return dice
 
-def visualize_segmentation(input_image, predicted_mask, threshold=0.5):
+def visualize_segmentation(predicted_mask, threshold=0.5):
     """
-    Overlays the predicted segmentation mask on the input image.
+    Returns the binary segmentation mask.
     
     Parameters:
-    - input_image: np.ndarray, original MRI image.
     - predicted_mask: np.ndarray, segmentation mask from the model.
     - threshold: float, threshold to binarize the mask.
     
     Returns:
-    - highlighted_image: np.ndarray, image with lesions highlighted.
+    - binary_mask: np.ndarray, binary segmentation mask.
     """
-    mask = predicted_mask > threshold
-    highlighted_image = np.copy(input_image)
-    highlighted_image[mask] = 255  # Highlight lesions in white
-    return highlighted_image
+    binary_mask = predicted_mask > threshold
+    return binary_mask.astype(np.uint8)  # Convert to uint8 for saving as image
 
 def save_nifti(image_data, output_path, affine):
     """

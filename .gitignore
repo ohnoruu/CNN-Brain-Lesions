@@ -3,8 +3,8 @@ credentials.py
 neuroimport.py
 testinglabelpaths.py
 test.py
-*.h5
-checkpoints/
+model.weights - BACKUP.h5
+model.weights - preaugment.h5
 tempdata/
 testview/
 testinglabels/
