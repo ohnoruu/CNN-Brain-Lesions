@@ -1,5 +1,4 @@
 tensorflow
-tensorflow_addons
 nibabel
 numpy
 scipy
